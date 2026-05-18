@@ -167,21 +167,24 @@ window.onload = function () {
 
 function handleCredentialResponse(response) {
 	const idToken = response.credential;
+	
+	// GAS 응답과 무관하게 먼저 UI 업데이트 및 로컬 스토리지 저장을 진행합니다.
+	updateUserProfile(idToken);
+	
 	fetch("https://script.google.com/macros/s/AKfycbzTSYkkjy1YUNI_aFxwMoXRKG7XEcVweakV9RQqMww38pi-iomUDacWuf6EQOewHLOSgg/exec", {
 		method: "POST",
-		headers: { "Content-Type": "application/json" },
+		headers: { "Content-Type": "text/plain;charset=utf-8" },
 		body: JSON.stringify({ action: "login", idToken: idToken })
 	})
 		.then(res => res.json())
 		.then(data => {
 			if (data.client_secret) {
-				console.log("Client Secret:", data.client_secret);
-				updateUserProfile(idToken);
+				console.log("GAS Login Check Success. Client Secret:", data.client_secret);
 			} else {
-				console.error("Login Failed:", data.error);
+				console.error("GAS Login Failed:", data.error);
 			}
 		})
-		.catch(error => console.error("Error:", error));
+		.catch(error => console.error("GAS Fetch Error:", error));
 }
 
 function updateUserProfile(idToken) {
