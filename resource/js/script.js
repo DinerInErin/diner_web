@@ -103,7 +103,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 			
 			fetch("https://script.google.com/macros/s/AKfycbzTSYkkjy1YUNI_aFxwMoXRKG7XEcVweakV9RQqMww38pi-iomUDacWuf6EQOewHLOSgg/exec", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: { "Content-Type": "text/plain;charset=utf-8" },
 				body: JSON.stringify(payload)
 			})
 			.then(res => res.json())
