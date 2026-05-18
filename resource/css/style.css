@@ -51,7 +51,7 @@ footer {
     padding: 10px 0;
     font-size: 14px;
 }
-.hidden { display: none; }
+.hidden { display: none !important; }
 #app::before {
     content: "";
     position: absolute;

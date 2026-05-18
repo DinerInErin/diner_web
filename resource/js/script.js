@@ -44,7 +44,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 					weekday: 'long'
 				},
 				events: function(info, successCallback, failureCallback) {
-					fetch("https://script.google.com/macros/s/AKfycbwourIXVLhFgtmXQXqpeTyYq7cTsjtA98pl98tDVmiGEzYyHssa9D8E1C4LZj_UGUyldQ/exec")
+					fetch("https://script.google.com/macros/s/AKfycbzTSYkkjy1YUNI_aFxwMoXRKG7XEcVweakV9RQqMww38pi-iomUDacWuf6EQOewHLOSgg/exec")
 						.then(res => res.json())
 						.then(data => successCallback(data))
 						.catch(err => {
@@ -101,7 +101,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 				reason: reason
 			};
 			
-			fetch("https://script.google.com/macros/s/AKfycbwourIXVLhFgtmXQXqpeTyYq7cTsjtA98pl98tDVmiGEzYyHssa9D8E1C4LZj_UGUyldQ/exec", {
+			fetch("https://script.google.com/macros/s/AKfycbzTSYkkjy1YUNI_aFxwMoXRKG7XEcVweakV9RQqMww38pi-iomUDacWuf6EQOewHLOSgg/exec", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(payload)
@@ -167,7 +167,7 @@ window.onload = function () {
 
 function handleCredentialResponse(response) {
 	const idToken = response.credential;
-	fetch("https://script.google.com/macros/s/AKfycbwourIXVLhFgtmXQXqpeTyYq7cTsjtA98pl98tDVmiGEzYyHssa9D8E1C4LZj_UGUyldQ/exec", {
+	fetch("https://script.google.com/macros/s/AKfycbzTSYkkjy1YUNI_aFxwMoXRKG7XEcVweakV9RQqMww38pi-iomUDacWuf6EQOewHLOSgg/exec", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({ action: "login", idToken: idToken })
