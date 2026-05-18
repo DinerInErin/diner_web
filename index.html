@@ -26,22 +26,29 @@
       </div>
     </header>
     <div id="sidebar">
-      <div class="just-diner">
-        <img src="resource/image/default-profile.png">
-      </div>
+<!--      <div class="just-diner">-->
+<!--        <div class="be-careful speech-bubble">너도 멸종되지 않게 조심해</div>-->
+<!--        <img src="resource/image/default-profile.png">-->
+<!--      </div>-->
       <div class="login-container p-3">
-        <div class="profile-icon">
-          <span class="material-symbols-outlined">account_circle</span>
+        <div class="login-btn-area">
+          <button id="login-btn" class="btn btn-dark">
+            <div class="profile-icon">
+              <span class="material-symbols-outlined">account_circle</span>
+            </div>
+            <span class="pr-3 d-inline-block">로그인</span>
+          </button>
         </div>
-        <div id="user-info" class="hidden">
-          <img id="profile-img" class="profile-img" src="" alt="Profile">
-          <span id="user-name"></span>
-        </div>
-        <div id="login-btn-area">
-          <button class="btn btn-dark">로그인</button>
+        <div id="user-info" class="hidden d-flex align-items-center justify-content-between">
+          <div>
+            <img id="profile-img" class="profile-img" src="" alt="Profile">
+            <span id="user-name" class="ms-2"></span>
+          </div>
+          <button id="logout-btn" class="btn btn-sm btn-outline-light ms-2" title="로그아웃">
+            <span class="material-symbols-outlined" style="font-size: 18px; vertical-align: middle;">logout</span>
+          </button>
         </div>
       </div>
-      <!-- 사용자 프로필&로그인 버튼 자리-->
       <ul class="nav flex-column p-2">
         <li class="nav-item">
           <router-link to="/main" class="nav-link text-white">
@@ -79,7 +86,7 @@
       <router-view></router-view>
     </div>
     <footer>
-      <p>&copy; 2024 Diner Web. All rights reserved.</p>
+      <p>&copy; 2026 Diner Web. All rights reserved.</p>
     </footer>
   </div>
   <div class="modal fade" id="eventModal" tabindex="-1" aria-labelledby="eventModalLabel" aria-hidden="true">
