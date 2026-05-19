@@ -1,3 +1,13 @@
 <div id="calendar-wrapper" class="p-3">
-	<div id="calendar"></div>
+	<div class="calendar-header-custom d-flex justify-content-between align-items-center mb-3 p-2 bg-white rounded-3 shadow-sm border border-light">
+		<button id="prevMonthBtn" class="btn text-dark d-flex align-items-center justify-content-center p-2 rounded-circle hover-bg" style="width: 42px; height: 42px; transition: background-color 0.2s; border: none; text-decoration: none !important; box-shadow: none;">
+			<span class="material-symbols-outlined fs-3 fw-bold">chevron_left</span>
+		</button>
+		<h3 id="calendarTitle" class="m-0 fw-bold fs-4 text-dark select-none" style="letter-spacing: -0.5px;"></h3>
+		<button id="nextMonthBtn" class="btn text-dark d-flex align-items-center justify-content-center p-2 rounded-circle hover-bg" style="width: 42px; height: 42px; transition: background-color 0.2s; border: none; text-decoration: none !important; box-shadow: none;">
+			<span class="material-symbols-outlined fs-3 fw-bold">chevron_right</span>
+		</button>
+	</div>
+	
+	<div id="calendar" class="p-1"></div>
 </div>

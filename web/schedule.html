@@ -1,4 +1,92 @@
-<div id="schedule">
-	<h1>일정</h1>
-	<h2>공사중..</h2>
+<div id="schedule" class="p-4">
+  <div class="row g-4">
+    <!-- 일정 목록 영역 -->
+    <div class="col-lg-8">
+      <div class="card shadow border-0 rounded-4 p-4 bg-white">
+        <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
+          <div>
+            <h4 class="fw-bold mb-1 text-dark d-flex align-items-center gap-2">
+              <span class="material-symbols-outlined text-primary">calendar_today</span>
+              이번주 일정
+            </h4>
+            <p class="text-secondary small mb-0" id="cycle-range-text">목요일 ~ 다음주 수요일 범위 일정을 모아봅니다.</p>
+          </div>
+          <span class="badge bg-light text-dark border px-3 py-2 rounded-pill fw-semibold" id="cycle-badge">계산 중...</span>
+        </div>
+
+        <div id="schedule-list" class="d-flex flex-column gap-3">
+          <!-- JS로 일정 카드들이 동적 렌더링될 자리 -->
+          <div class="text-center py-5 text-secondary">
+            <div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div>
+            <div>일정 데이터를 동기화 중입니다...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 새 일정 등록 카드 -->
+    <div class="col-lg-4">
+      <div class="card shadow border-0 rounded-4 p-4 bg-white sticky-lg-top" style="top: 80px; z-index: 10;">
+        <h5 class="fw-bold mb-3 text-dark d-flex align-items-center gap-2">
+          <span class="material-symbols-outlined text-success">add_circle</span>
+          새 일정 등록
+        </h5>
+
+        <form id="new-schedule-form">
+          <div class="form-floating mb-3">
+            <input type="date" class="form-control rounded-3" id="sched-date" placeholder="날짜" required>
+            <label for="sched-date" class="text-secondary">날짜</label>
+          </div>
+          
+          <div class="form-floating mb-3">
+            <input type="text" class="form-control rounded-3" id="sched-title" placeholder="일정 이름" required>
+            <label for="sched-title" class="text-secondary">일정 이름</label>
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label small fw-semibold text-secondary d-flex align-items-center gap-1 mb-2">
+              <span class="material-symbols-outlined" style="font-size: 16px;">group</span>
+              참석자 선택
+            </label>
+            <div id="sched-attendees-list" class="border rounded-3 p-3 bg-light scrollable-users-list" style="max-height: 150px; overflow-y: auto;">
+              <span class="text-muted small">동기화된 사용자가 없습니다.</span>
+            </div>
+          </div>
+          
+          <button type="submit"
+            class="btn btn-primary w-100 rounded-pill py-2 fw-semibold d-flex align-items-center justify-content-center gap-1">
+            <span class="material-symbols-outlined" style="font-size: 20px;">save</span>
+            일정 추가하기
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 일정 이름 수정 모달 -->
+  <div class="modal fade custom-anim-modal" id="editScheduleModal" tabindex="-1"
+    aria-labelledby="editScheduleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content shadow border-0 rounded-4">
+        <div class="modal-header bg-dark text-white rounded-top-4">
+          <h5 class="modal-title fw-bold" id="editScheduleModalLabel">
+            <span class="material-symbols-outlined align-middle me-1">edit_note</span>
+            일정 이름 수정
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-4">
+          <input type="hidden" id="edit-sched-id">
+          <div class="form-floating">
+            <input type="text" class="form-control" id="edit-sched-title" placeholder="새로운 일정 이름을 입력하세요" required>
+            <label for="edit-sched-title" class="text-secondary">일정 이름</label>
+          </div>
+        </div>
+        <div class="modal-footer border-0 pb-4 pe-4">
+          <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">취소</button>
+          <button type="button" class="btn btn-primary rounded-pill px-4" id="saveEditScheduleBtn">수정 완료</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>

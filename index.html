@@ -10,6 +10,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/6.1.8/index.global.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
   <script src="https://unpkg.com/vue-router@4/dist/vue-router.global.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/perfect-scrollbar@1.5.5/css/perfect-scrollbar.css">
+  <script src="https://cdn.jsdelivr.net/npm/perfect-scrollbar@1.5.5/dist/perfect-scrollbar.min.js"></script>
   <script src="resource/js/app.js"></script>
   <script src="resource/js/script.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
@@ -18,31 +20,25 @@
 </head>
 <body>
   <div id="app">
-    <header class="d-flex justify-content-between align-items-center p-3">
-      <div class="dummy"></div>
-      <h2 class="m-0 title"></h2>
-      <div class="sidebar-toggle-area">
-        <button id="sidebar-toggle" class="btn"><span class="material-symbols-outlined">menu</span></button>
-      </div>
-    </header>
     <div id="sidebar">
 <!--      <div class="just-diner">-->
 <!--        <div class="be-careful speech-bubble">너도 멸종되지 않게 조심해</div>-->
 <!--        <img src="resource/image/default-profile.png">-->
 <!--      </div>-->
       <div class="login-container p-3">
-        <div class="login-btn-area">
-          <button id="login-btn" class="btn btn-dark">
-            <div class="profile-icon">
-              <span class="material-symbols-outlined">account_circle</span>
-            </div>
-            <span class="pr-3 d-inline-block">로그인</span>
+        <div class="login-btn-area" id="login-btn-area">
+          <button id="login-btn" class="btn btn-dark d-flex align-items-center gap-2 px-3 py-2 w-100">
+            <span class="material-symbols-outlined" style="font-size: 24px;">account_circle</span>
+            <span>로그인</span>
           </button>
         </div>
         <div id="user-info" class="hidden d-flex align-items-center justify-content-between">
-          <div>
+          <div class="d-flex align-items-center">
             <img id="profile-img" class="profile-img" src="" alt="Profile">
-            <span id="user-name" class="ms-2"></span>
+            <div class="ms-2 d-flex flex-column align-items-start">
+              <span id="user-name" class="fw-bold" style="font-size: 15px;"></span>
+              <span id="user-nickname" class="text-white-50 mt-1" style="font-size: 12px; cursor: pointer; transition: color 0.2s;" onmouseover="this.classList.remove('text-white-50'); this.classList.add('text-white');" onmouseout="this.classList.remove('text-white'); this.classList.add('text-white-50');" data-bs-toggle="modal" data-bs-target="#nicknameModal">프로필 설정 <span class="material-symbols-outlined" style="font-size: 12px; vertical-align: middle;">edit</span></span>
+            </div>
           </div>
           <button id="logout-btn" class="btn btn-sm btn-outline-light ms-2" title="로그아웃">
             <span class="material-symbols-outlined" style="font-size: 18px; vertical-align: middle;">logout</span>
@@ -83,27 +79,118 @@
       </ul>
     </div>
     <div id="main-container">
+      <header class="d-flex justify-content-between align-items-center p-3">
+        <div class="dummy"></div>
+        <h2 class="m-0 title"></h2>
+        <div class="sidebar-toggle-area">
+          <button id="sidebar-toggle" class="btn"><span class="material-symbols-outlined">menu</span></button>
+        </div>
+      </header>
       <router-view></router-view>
     </div>
     <footer>
       <p>&copy; 2026 Diner Web. All rights reserved.</p>
     </footer>
   </div>
-  <div class="modal fade" id="eventModal" tabindex="-1" aria-labelledby="eventModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="eventModalLabel">안되는 날짜 라고요?</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+  <!-- Profile Settings Modal -->
+  <div class="modal fade custom-anim-modal" id="nicknameModal" tabindex="-1" aria-labelledby="nicknameModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content shadow border-0 rounded-4">
+        <div class="modal-header bg-dark text-white rounded-top-4">
+          <h5 class="modal-title fw-bold" id="nicknameModalLabel">
+            <span class="material-symbols-outlined align-middle me-1">manage_accounts</span>
+            프로필 설정
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body p-4">
+          <div class="d-flex flex-column align-items-center mb-4">
+            <img id="profilePreview" src="" alt="Preview" class="rounded-circle border border-2 shadow-sm" style="width: 80px; height: 80px; object-fit: cover; cursor: pointer; background-color: #f8f9fa;" onclick="document.getElementById('profileImageInput').click();" title="이미지 변경">
+            <input type="file" id="profileImageInput" accept="image/*" class="d-none">
+            <span class="text-muted mt-2" style="font-size: 12px; cursor: pointer;" onclick="document.getElementById('profileImageInput').click();">이미지를 클릭하여 변경</span>
+          </div>
+          <div class="form-floating">
+            <input type="text" class="form-control" id="nicknameInput" placeholder="닉네임 입력">
+            <label for="nicknameInput" class="text-secondary">원하는 닉네임을 입력하세요</label>
+          </div>
+        </div>
+        <div class="modal-footer border-0 pb-4 pe-4">
+          <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">취소</button>
+          <button type="button" class="btn btn-primary rounded-pill px-4" id="saveNicknameBtn">저장하기</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Event Modal (Check Date) -->
+  <div class="modal fade custom-anim-modal" id="eventModal" tabindex="-1" aria-labelledby="eventModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content shadow border-0 rounded-4">
+        <div class="modal-header bg-dark text-white rounded-top-4">
+          <h5 class="modal-title fw-bold" id="eventModalLabel">
+            <span class="material-symbols-outlined align-middle me-1">event_available</span>
+            참석가능한 날짜로 체크 할까요?
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-4">
           <input type="hidden" id="selectedDate">
-          <label for="reasonInput" class="form-label">이유:</label>
-          <input type="text" class="form-control" id="reasonInput">
+          <div class="form-floating">
+            <input type="text" class="form-control" id="reasonInput" placeholder="메모가 필요하다면 입력하세요">
+            <label for="reasonInput" class="text-secondary">메모가 필요하다면 입력하세요</label>
+          </div>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
-          <button type="button" class="btn btn-primary" id="saveEvent">저장</button>
+        <div class="modal-footer border-0 pb-4 pe-4">
+          <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">취소</button>
+          <button type="button" class="btn btn-primary rounded-pill px-4" id="saveEvent">저장하기</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Event Modal (Uncheck Date) -->
+  <div class="modal fade custom-anim-modal" id="deleteEventModal" tabindex="-1" aria-labelledby="deleteEventModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content shadow border-0 rounded-4">
+        <div class="modal-header bg-danger text-white rounded-top-4">
+          <h5 class="modal-title fw-bold" id="deleteEventModalLabel">
+            <span class="material-symbols-outlined align-middle me-1">event_busy</span>
+            체크를 해제할까요?
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-4 text-center">
+          <input type="hidden" id="deleteEventDate">
+          <p class="mb-0 fs-5">이 날짜의 참석 체크를 해제하시겠습니까?</p>
+        </div>
+        <div class="modal-footer border-0 pb-4 pe-4 justify-content-center">
+          <button type="button" class="btn btn-light border rounded-pill px-4" data-bs-dismiss="modal">아니오</button>
+          <button type="button" class="btn btn-danger rounded-pill px-4" id="deleteEventBtn">해제하기</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container for Notifications -->
+  <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 11000;">
+    <!-- 일반 알림 토스트 -->
+    <div id="appToast" class="toast align-items-center text-white bg-dark border-0 rounded-3 shadow" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="d-flex">
+        <div id="toastBody" class="toast-body fs-6 py-2">
+          메시지 내용
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+    </div>
+
+    <!-- 로딩 전용 토스트 (스피너 포함) -->
+    <div id="loadingToast" class="toast align-items-center text-white bg-info border-0 rounded-3 shadow" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="false">
+      <div class="d-flex">
+        <div id="loadingToastBody" class="toast-body fs-6 py-2">
+          로딩 중...
+        </div>
+        <div class="spinner-border spinner-border-sm text-light my-auto me-3" role="status">
+          <span class="visually-hidden">Loading...</span>
         </div>
       </div>
     </div>

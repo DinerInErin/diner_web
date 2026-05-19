@@ -34,6 +34,11 @@ document.addEventListener("DOMContentLoaded", () => {
 					const response = await fetch(url);
 					if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
 					this.loadedTemplate = await response.text();
+					this.$nextTick(() => {
+						if (window.ps) {
+							window.ps.update();
+						}
+					});
 				} catch (error) {
 					console.error(`🚨 Error fetching ${url}:`, error);
 					this.loadedTemplate = "<p>Error loading page.</p>";
@@ -72,4 +77,12 @@ document.addEventListener("DOMContentLoaded", () => {
 	const app = createApp({});
 	app.use(router);
 	app.mount("#app");
+	const container = document.querySelector("#main-container");
+	if (container) {
+		window.ps = new PerfectScrollbar(container, {
+			wheelSpeed: 1,
+			wheelPropagation: true,
+			minScrollbarLength: 20
+		});
+	}
 });
