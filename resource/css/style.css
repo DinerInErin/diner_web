@@ -187,6 +187,10 @@ footer {
     z-index: 1;
 }
 
+#main-container > div {
+    padding-bottom: 150px;
+}
+
 #sidebar {
     position: fixed;
     top: 0;
@@ -566,4 +570,44 @@ footer {
     width: 30px !important;
     height: 30px !important;
     align-self: center;
+}
+
+.fc-daygrid-day-events .fc-event-title-text {
+    display: none !important;
+}
+
+.fc-popover .fc-event-title-text {
+    display: inline-block !important;
+    font-size: 11px !important;
+    color: #495057 !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+    margin-left: 6px !important;
+    vertical-align: middle !important;
+}
+
+.fc-popover .fc-event {
+    width: auto !important;
+    height: auto !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+    background: transparent !important;
+    margin-bottom: 6px !important;
+    display: block !important;
+}
+
+.fc-popover .fc-event-main {
+    width: auto !important;
+    height: auto !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+.fc-popover .fc-event-avatar {
+    width: 22px !important;
+    height: 22px !important;
+    border-radius: 50% !important;
+    object-fit: cover !important;
 }

@@ -40,8 +40,44 @@ document.addEventListener("DOMContentLoaded", async function () {
 
 		const calendarEl = document.getElementById("calendar");
 		if (calendarEl && !calendarEl.dataset.initialized) {
-			calendarEl.dataset.initialized = "true"; // 중복 방지
+			calendarEl.dataset.initialized = "true";
 			console.log("✅ Calendar detected, initializing...");
+
+			let touchStartX = 0;
+			let touchStartY = 0;
+			let touchStartTime = 0;
+
+			calendarEl.addEventListener("touchstart", function(e) {
+				const dayCell = e.target.closest(".fc-daygrid-day");
+				if (!dayCell) return;
+				if (e.target.closest(".fc-event")) return;
+				
+				const touch = e.touches[0];
+				touchStartX = touch.clientX;
+				touchStartY = touch.clientY;
+				touchStartTime = Date.now();
+			}, { passive: true });
+
+			calendarEl.addEventListener("touchend", function(e) {
+				const dayCell = e.target.closest(".fc-daygrid-day");
+				if (!dayCell) return;
+				if (e.target.closest(".fc-event")) return;
+				
+				const touch = e.changedTouches[0];
+				const diffX = Math.abs(touch.clientX - touchStartX);
+				const diffY = Math.abs(touch.clientY - touchStartY);
+				const diffTime = Date.now() - touchStartTime;
+				
+				if (diffX < 10 && diffY < 10 && diffTime < 250) {
+					const dateStr = dayCell.getAttribute("data-date");
+					if (dateStr) {
+						e.preventDefault();
+						if (typeof handleDateRangeSelect === "function") {
+							handleDateRangeSelect(dateStr, dateStr);
+						}
+					}
+				}
+			}, { passive: false });
 
 			window.appCalendar = new FullCalendar.Calendar(calendarEl, {
 				initialView: "dayGridMonth",
@@ -49,7 +85,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 				selectable: true,
 				selectMirror: true,
 				unselectAuto: true,
-				longPressDelay: 250,
+				selectLongPressDelay: 350,
 				fixedWeekCount: false,
 				headerToolbar: false,
 				height: "auto",
@@ -222,8 +258,8 @@ document.addEventListener("DOMContentLoaded", async function () {
 					const cacheKey = `${bodyColor}_${bgColor}_${isWhiteLine}`;
 					let profileImage = window.dinoAvatarCache[cacheKey] || "resource/image/default-profile.png";
 					const memo = arg.event.extendedProps.reason || "";
-
-					let imgHtml = `<img src="${profileImage}" class="shadow-sm" data-bs-toggle="tooltip" data-bs-placement="top" title="${memo}">`;
+					const displayName = user ? user.Nickname : eventTitle;
+					let imgHtml = `<div class="d-flex align-items-center fc-event-wrapper"><img src="${profileImage}" class="shadow-sm fc-event-avatar" data-bs-toggle="tooltip" data-bs-placement="top" title="${memo || displayName}"><span class="fc-event-title-text" style="display: none;">${displayName}</span></div>`;
 
 					return { html: imgHtml };
 				},
@@ -781,18 +817,66 @@ function updateUserProfile(idToken) {
 					});
 				}
 			} else {
-				document.getElementById("user-name").textContent = userInfo.name;
-				document.getElementById("user-nickname").innerHTML = '프로필 설정 <span class="material-symbols-outlined" style="font-size: 12px; vertical-align: middle;">edit</span>';
-
-				const bodyColor = "#A3D9C9";
-				const bgColor = "#FAF8F5";
+				const newNickname = userInfo.name;
+				const bodyColor = "#D0D0D0";
+				const bgColor = "#EAEAEA";
 				const lineColor = "black";
+
+				localStorage.setItem("dinerUserNickname", newNickname);
+				localStorage.setItem("dinoBodyColor", bodyColor);
+				localStorage.setItem("dinoBgColor", bgColor);
+				localStorage.setItem("dinoLineColor", lineColor);
+
+				document.getElementById("user-name").textContent = newNickname;
+				document.getElementById("user-nickname").innerHTML = newNickname + ' <span class="material-symbols-outlined" style="font-size: 12px; vertical-align: middle;">edit</span>';
+
 				if (typeof generateDinoAvatar === "function") {
 					generateDinoAvatar(bodyColor, bgColor, lineColor, function(avatarUrl) {
 						localStorage.setItem("dinerUserProfileImage", avatarUrl);
 						document.getElementById("profile-img").src = avatarUrl;
 					});
 				}
+
+				fetch("https://script.google.com/macros/s/AKfycbwHeRs4tqgNwsBIR4AVIKIAMuTTjAl6Ez4unnqWv94wfZxtbwSq-WO05w6guaiCbALelA/exec", {
+					method: "POST",
+					headers: { "Content-Type": "text/plain;charset=utf-8" },
+					body: JSON.stringify({
+						action: "saveUser",
+						email: userInfo.email,
+						nickname: newNickname,
+						dinoBodyColor: bodyColor,
+						dinoBgColor: bgColor,
+						dinoLineColor: lineColor
+					})
+				})
+				.then(res => res.json())
+				.then(data => {
+					if (data.success) {
+						let usersCache = [];
+						const cached = localStorage.getItem("dinerUsersCache");
+						if (cached) {
+							try { usersCache = JSON.parse(cached); } catch(e) {}
+						}
+						const userIdx = usersCache.findIndex(u => u.Email === userInfo.email);
+						const newUserData = {
+							Email: userInfo.email,
+							Nickname: newNickname,
+							DinoBodyColor: bodyColor,
+							DinoBgColor: bgColor,
+							DinoLineColor: lineColor
+						};
+						if (userIdx !== -1) {
+							usersCache[userIdx] = newUserData;
+						} else {
+							usersCache.push(newUserData);
+						}
+						localStorage.setItem("dinerUsersCache", JSON.stringify(usersCache));
+						if (window.appCalendar) {
+							window.appCalendar.refetchEvents();
+						}
+					}
+				})
+				.catch(err => console.error("GAS auto register fail:", err));
 
 				setTimeout(() => {
 					const nicknameModalEl = document.getElementById('nicknameModal');
@@ -813,6 +897,14 @@ function updateUserProfile(idToken) {
 let loadingToastInstance = null;
 
 function handleDateRangeSelect(startStr, endStr) {
+	if (startStr === endStr) {
+		const nextDate = new Date(startStr);
+		nextDate.setDate(nextDate.getDate() + 1);
+		const yyyy = nextDate.getFullYear();
+		const mm = String(nextDate.getMonth() + 1).padStart(2, '0');
+		const dd = String(nextDate.getDate()).padStart(2, '0');
+		endStr = `${yyyy}-${mm}-${dd}`;
+	}
 	let dates = [];
 	let currentDate = new Date(startStr);
 	let endDate = new Date(endStr);
@@ -1119,8 +1211,8 @@ function initSchedulePage() {
 	const cycleTextEl = document.getElementById("cycle-range-text");
 	if (cycleTextEl) cycleTextEl.textContent = `${formatDateString(range.start)} ~ ${formatDateString(range.end)}`;
 
-	const cycleBadgeEl = document.getElementById("cycle-badge");
-	if (cycleBadgeEl) cycleBadgeEl.textContent = `${range.start.getMonth() + 1}월 ${range.start.getDate()}일 주간`;
+	// const cycleBadgeEl = document.getElementById("cycle-badge");
+	// if (cycleBadgeEl) cycleBadgeEl.textContent = `${range.start.getMonth() + 1}월 ${range.start.getDate()}일 주간`;
 
 	const dateInput = document.getElementById("sched-date");
 	if (dateInput) {
