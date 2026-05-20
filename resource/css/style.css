@@ -168,9 +168,8 @@ footer {
     left: 0;
     width: 100%;
     height: 100%;
-    background-image: url('../image/header-pattern.png');
-    background-repeat: repeat-x;
-    background-color: #FAF8F5;
+    background-image: url('../image/bg.png');
+    background-size: cover;
     z-index: -1;
     filter: blur(0px);
     transition: filter 0.4s ease-in-out;
@@ -310,46 +309,68 @@ footer {
     justify-content: flex-start !important;
 }
 
+.fc-daygrid-day-events::before,
+.fc-daygrid-day-events::after {
+    display: none !important;
+    content: none !important;
+}
+
 .fc-daygrid-event-harness {
     margin: 0 !important;
-    display: inline-block !important;
+    padding: 0 !important;
+    display: block !important;
+    width: 22px !important;
+    height: 22px !important;
 }
 
 .fc-event {
-    border-radius: 50%;
+    border-radius: 50% !important;
     width: 22px !important;
     height: 22px !important;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
 }
 
+.fc-event .fc-event-main {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: hidden !important;
+    border-radius: 50% !important;
+}
+
+.fc-event img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    border-radius: 50% !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
 .fc-daygrid-event {
     display: inline-flex !important;
     margin: 0 !important;
+    padding: 0 !important;
     background: transparent !important;
     border: none !important;
 }
 
 .fc .fc-daygrid-day-top {
     flex-direction: revert;
-    padding: 5px 5px;
-}
-
-.fc-theme-standard .fc-scrollgrid {
-    border: 1px solid #dee2e6 !important;
-    border-radius: 8px !important;
-    box-shadow: 0 .125rem .25rem rgba(0, 0, 0, 0.075) !important;
-    background-color: white !important;
-    overflow: hidden !important;
-    border-collapse: separate !important;
+    padding: 3px;
 }
 
 .fc-theme-standard td,
@@ -384,6 +405,7 @@ footer {
 .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
     background-color: #323232;
     border-radius: 5px;
+    padding: 2px !important;
 }
 
 .fc a.fc-daygrid-day-number.holiday {
@@ -432,22 +454,12 @@ footer {
     margin: 5px;
 }
 
-.fc-theme-standard td {
-    max-height: 20%;
-    min-height: 20%;
-    height: 20%;
-}
-
 .fc-highlight {
     background: rgba(50, 255, 180, 0.3) !important;
 }
 
 .fc-selected-date {
     background: rgba(50, 255, 180, 0.3) !important;
-}
-
-.fc-dayGridMonth-view tbody {
-    height: 100vh;
 }
 
 .custom-anim-modal.show .modal-dialog {
@@ -493,20 +505,65 @@ footer {
     box-shadow: none !important;
 }
 
-#main-container>div {
-    height: 110% !important;
-    overflow: visible !important;
-}
-
-#calendar-wrapper {
-    height: 100% !important;
-    overflow: visible !important;
-}
-
 .fc-scroller,
 .fc-scroller-harness,
 .fc-scroller-harness-liquid,
 .fc-scroller-liquid-absolute,
 #calendar {
     overflow: visible !important;
+}
+
+#calendar {
+    border-radius: 0.5rem;
+    border-color: rgb(248, 249, 250);
+    background-color: white;
+    padding: .5rem !important;
+    border: 1px solid #dee2e6;
+    box-shadow: 0 .125rem .25rem rgba(0,0,0,.075) !important;
+}
+
+.fc-theme-standard .fc-scrollgrid {
+    border: none !important;
+}
+
+@media (max-width: 767.98px) {
+    .fc-event {
+        width: 18px !important;
+        height: 18px !important;
+    }
+    .fc-daygrid-event-harness {
+        width: 18px !important;
+        height: 18px !important;
+    }
+    .fc-event img {
+        width: 100% !important;
+        height: 100% !important;
+    }
+    .fc-daygrid-day-events {
+        gap: 2px !important;
+        padding: 2px !important;
+    }
+}
+
+#daily-events-container {
+    background: rgba(255, 255, 255, 0.8) !important;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease-in-out;
+}
+
+#daily-events-list .bg-light {
+    background-color: #FAF8F5 !important;
+    border: 1px solid rgba(0, 0, 0, 0.03);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+#daily-events-list .bg-light:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 .25rem .5rem rgba(0, 0, 0, 0.04) !important;
+}
+
+.confirmed-badge {
+    width: 30px !important;
+    height: 30px !important;
+    align-self: center;
 }

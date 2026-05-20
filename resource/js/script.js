@@ -49,9 +49,11 @@ document.addEventListener("DOMContentLoaded", async function () {
 				selectable: true,
 				selectMirror: true,
 				unselectAuto: true,
-				longPressDelay: 250, // 모바일에서 0.25초 꾹 누르면 드래그 선택 모드로 진입
+				longPressDelay: 250,
 				fixedWeekCount: false,
 				headerToolbar: false,
+				height: "auto",
+				dayMaxEvents: 5,
 				dayHeaderFormat: {
 					weekday: 'short'
 				},
@@ -71,9 +73,21 @@ document.addEventListener("DOMContentLoaded", async function () {
 					if (hasCache) {
 						try {
 							cachedEvents = JSON.parse(cachedDataStr);
-							successCallback(cachedEvents);
-							// 캐시 렌더링 완료 즉시 5인 이상 배지 렌더링
-							setTimeout(() => { renderConfirmedDateBadges(cachedEvents); }, 50);
+							if (typeof pregenerateAllUserAvatars === "function") {
+								pregenerateAllUserAvatars(function() {
+									successCallback(cachedEvents);
+									setTimeout(() => { renderConfirmedDateBadges(cachedEvents); }, 50);
+									if (window.selectedActiveDate && typeof updateDailyEventsList === "function") {
+										setTimeout(() => { updateDailyEventsList(window.selectedActiveDate); }, 60);
+									}
+								});
+							} else {
+								successCallback(cachedEvents);
+								setTimeout(() => { renderConfirmedDateBadges(cachedEvents); }, 50);
+								if (window.selectedActiveDate && typeof updateDailyEventsList === "function") {
+									setTimeout(() => { updateDailyEventsList(window.selectedActiveDate); }, 60);
+								}
+							}
 						} catch (e) {
 							console.error("Cache parsing error", e);
 						}
@@ -107,26 +121,38 @@ document.addEventListener("DOMContentLoaded", async function () {
 							if (data && data.events) {
 								eventsArray = data.events;
 								schedulesArray = data.schedules;
-								// 스케줄도 로컬 캐시에 저장
 								localStorage.setItem("dinerSchedulesCache", JSON.stringify(schedulesArray));
+								if (data.users) {
+									localStorage.setItem("dinerUsersCache", JSON.stringify(data.users));
+								}
 							} else if (Array.isArray(data)) {
 								eventsArray = data;
 							}
 
-							// 이벤트를 로컬 캐시에 저장
 							localStorage.setItem("dinerEventsCache", JSON.stringify(eventsArray));
 
-							// 최초 진입 동기화 피드백 종료
-							if (window.isFirstLoad) {
-								window.isFirstLoad = false; // 최초 로드 완료 플래그 리셋
-								hideLoadingToast("캘린더 데이터 동기화 완료!");
-							} else if (!hasCache) {
-								hideLoadingToast("캘린더 데이터 로딩 완료!");
-							}
-
-							// 3. 서버 정합성을 보장하기 위해 한 번 더 동기 렌더링 호출
-							if (window.appCalendar) {
-								window.appCalendar.refetchEvents();
+							if (typeof pregenerateAllUserAvatars === "function") {
+								pregenerateAllUserAvatars(function() {
+									if (window.isFirstLoad) {
+										window.isFirstLoad = false;
+										hideLoadingToast("캘린더 데이터 동기화 완료!");
+									} else if (!hasCache) {
+										hideLoadingToast("캘린더 데이터 로딩 완료!");
+									}
+									if (window.appCalendar) {
+										window.appCalendar.refetchEvents();
+									}
+								});
+							} else {
+								if (window.isFirstLoad) {
+									window.isFirstLoad = false;
+									hideLoadingToast("캘린더 데이터 동기화 완료!");
+								} else if (!hasCache) {
+									hideLoadingToast("캘린더 데이터 로딩 완료!");
+								}
+								if (window.appCalendar) {
+									window.appCalendar.refetchEvents();
+								}
 							}
 						})
 						.catch(err => {
@@ -145,32 +171,59 @@ document.addEventListener("DOMContentLoaded", async function () {
 						});
 				},
 				select: function (selectionInfo) {
-					handleDateRangeSelect(selectionInfo.startStr, selectionInfo.endStr);
+					const start = new Date(selectionInfo.startStr);
+					const end = new Date(selectionInfo.endStr);
+					const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24));
+					if (diffDays > 1) {
+						handleDateRangeSelect(selectionInfo.startStr, selectionInfo.endStr);
+					}
+				},
+				dateClick: function (info) {
+					handleDateRangeSelect(info.dateStr, info.dateStr);
 				},
 				eventClick: function (info) {
 					const dateStr = info.event.startStr.split('T')[0];
 					handleDateOrEventClick(dateStr);
 				},
 				eventContent: function (arg) {
-					let profileImage = arg.event.extendedProps.profileImage;
-					const eventOwner = arg.event.extendedProps.originalName || arg.event.extendedProps.name || arg.event.title;
+					const eventTitle = arg.event.title || arg.event.extendedProps.name;
+					const eventOrigName = arg.event.extendedProps.originalName;
+					let usersCache = [];
+					try {
+						usersCache = JSON.parse(localStorage.getItem("dinerUsersCache") || "[]");
+					} catch(e) {}
 
-					// 내 일정일 경우 시트에 이미지가 없더라도 로컬 스토리지의 구글 이미지 또는 커스텀 이미지로 폴백 표시
-					if (!profileImage) {
+					const user = usersCache.find(u => 
+						(eventTitle && u.Nickname === eventTitle) || 
+						(eventOrigName && u.Nickname === eventOrigName) || 
+						(eventOrigName && u.Email === eventOrigName)
+					);
+					let bodyColor = "#A3D9C9";
+					let bgColor = "#FAF8F5";
+					let isWhiteLine = "black";
+
+					if (user) {
+						bodyColor = user.DinoBodyColor;
+						bgColor = user.DinoBgColor;
+						isWhiteLine = user.DinoLineColor || "black";
+					} else {
 						const savedUserStr = localStorage.getItem("dinerUserInfo");
 						if (savedUserStr) {
 							const userInfo = JSON.parse(savedUserStr);
-							const currentNickname = localStorage.getItem("dinerUserNickname");
-							if (eventOwner === userInfo.name || eventOwner === currentNickname) {
-								profileImage = localStorage.getItem("dinerUserProfileImage") || userInfo.picture;
+							const myNickname = localStorage.getItem("dinerUserNickname");
+							if (eventTitle === userInfo.name || eventTitle === myNickname || eventOrigName === userInfo.name || eventOrigName === userInfo.email) {
+								bodyColor = localStorage.getItem("dinoBodyColor") || "#A3D9C9";
+								bgColor = localStorage.getItem("dinoBgColor") || "#FAF8F5";
+								isWhiteLine = localStorage.getItem("dinoLineColor") || "black";
 							}
 						}
 					}
 
-					profileImage = profileImage || "resource/image/default-profile.png";
+					const cacheKey = `${bodyColor}_${bgColor}_${isWhiteLine}`;
+					let profileImage = window.dinoAvatarCache[cacheKey] || "resource/image/default-profile.png";
 					const memo = arg.event.extendedProps.reason || "";
 
-					let imgHtml = `<img src="${profileImage}" class="rounded-circle border border-2 border-white shadow-sm" style="width:22px; height:22px; object-fit:cover; margin: 2px;" data-bs-toggle="tooltip" data-bs-placement="top" title="${memo}">`;
+					let imgHtml = `<img src="${profileImage}" class="shadow-sm" data-bs-toggle="tooltip" data-bs-placement="top" title="${memo}">`;
 
 					return { html: imgHtml };
 				},
@@ -490,65 +543,29 @@ window.onload = function () {
 	if (savedUserStr) {
 		const userInfo = JSON.parse(savedUserStr);
 		const savedNickname = localStorage.getItem("dinerUserNickname");
-		const savedProfileImage = localStorage.getItem("dinerUserProfileImage");
+		const bodyColor = localStorage.getItem("dinoBodyColor") || "#A3D9C9";
+		const bgColor = localStorage.getItem("dinoBgColor") || "#FAF8F5";
 
-		document.getElementById("profile-img").src = savedProfileImage || userInfo.picture;
 		document.getElementById("user-name").textContent = savedNickname || userInfo.name;
 		if (savedNickname) {
 			document.getElementById("user-nickname").innerHTML = savedNickname + ' <span class="material-symbols-outlined" style="font-size: 12px; vertical-align: middle;">edit</span>';
 		}
+		
+		if (typeof generateDinoAvatar === "function") {
+			generateDinoAvatar(bodyColor, bgColor, function(avatarUrl) {
+				localStorage.setItem("dinerUserProfileImage", avatarUrl);
+				document.getElementById("profile-img").src = avatarUrl;
+			});
+		}
+
 		document.getElementById("login-btn-area").classList.add("hidden");
 		document.getElementById("user-info").classList.remove("hidden");
-	}
-
-	// 이미지 미리보기 변수
-	let tempBase64Image = null;
-
-	// 파일 선택 시 캔버스를 이용해 압축 후 미리보기 적용
-	const profileImageInput = document.getElementById('profileImageInput');
-	if (profileImageInput) {
-		profileImageInput.addEventListener('change', function (e) {
-			const file = e.target.files[0];
-			if (file) {
-				const reader = new FileReader();
-				reader.onload = function (event) {
-					const img = new Image();
-					img.onload = function () {
-						const canvas = document.createElement("canvas");
-						const MAX_SIZE = 120; // 120px로 리사이징하여 용량 최적화
-						let width = img.width;
-						let height = img.height;
-						if (width > height) {
-							if (width > MAX_SIZE) {
-								height *= MAX_SIZE / width;
-								width = MAX_SIZE;
-							}
-						} else {
-							if (height > MAX_SIZE) {
-								width *= MAX_SIZE / height;
-								height = MAX_SIZE;
-							}
-						}
-						canvas.width = width;
-						canvas.height = height;
-						const ctx = canvas.getContext("2d");
-						ctx.drawImage(img, 0, 0, width, height);
-						// Base64 압축 (jpeg 포맷, 0.7 퀄리티)
-						tempBase64Image = canvas.toDataURL("image/jpeg", 0.7);
-						document.getElementById('profilePreview').src = tempBase64Image;
-					};
-					img.src = event.target.result;
-				};
-				reader.readAsDataURL(file);
-			}
-		});
 	}
 
 	// 닉네임 모달 이벤트
 	const nicknameModalEl = document.getElementById('nicknameModal');
 	if (nicknameModalEl) {
 		nicknameModalEl.addEventListener('show.bs.modal', function () {
-			// 모달창이 뜰 때 사이드바 자동으로 닫기
 			const sidebar = document.getElementById("sidebar");
 			const sidebarOverlay = document.getElementById("sidebar-overlay");
 			if (sidebar && sidebarOverlay) {
@@ -557,42 +574,124 @@ window.onload = function () {
 			}
 
 			const currentNickname = localStorage.getItem("dinerUserNickname");
-			const currentProfileImage = localStorage.getItem("dinerUserProfileImage");
+			const bodyColor = localStorage.getItem("dinoBodyColor") || "#A3D9C9";
+			const bgColor = localStorage.getItem("dinoBgColor") || "#FAF8F5";
+			const lineColor = localStorage.getItem("dinoLineColor") || "black";
 
-			if (currentNickname) {
-				document.getElementById('nicknameInput').value = currentNickname;
-			} else {
-				document.getElementById('nicknameInput').value = '';
-			}
+			document.getElementById('nicknameInput').value = currentNickname || "";
+			document.getElementById('dinoBodyColor').value = bodyColor;
+			document.getElementById('dinoBgColor').value = bgColor;
+			document.getElementById('dinoLineColorToggle').checked = (lineColor === "white");
 
-			const defaultImage = document.getElementById('profile-img').src;
-			document.getElementById('profilePreview').src = currentProfileImage || defaultImage;
-			tempBase64Image = currentProfileImage || null;
-			if (profileImageInput) profileImageInput.value = ""; // 파일 인풋 초기화
+			setTimeout(() => {
+				if (typeof drawDinoPreview === "function") {
+					drawDinoPreview(bodyColor, bgColor, lineColor);
+				}
+			}, 100);
 		});
+	}
+
+	const dinoBodyColorInput = document.getElementById("dinoBodyColor");
+	const dinoBgColorInput = document.getElementById("dinoBgColor");
+	const dinoLineColorToggle = document.getElementById("dinoLineColorToggle");
+	if (dinoBodyColorInput && dinoBgColorInput && dinoLineColorToggle) {
+		const updatePreview = () => {
+			if (typeof drawDinoPreview === "function") {
+				const isWhite = dinoLineColorToggle.checked;
+				drawDinoPreview(dinoBodyColorInput.value, dinoBgColorInput.value, isWhite ? "white" : "black");
+			}
+		};
+		dinoBodyColorInput.addEventListener("input", updatePreview);
+		dinoBgColorInput.addEventListener("input", updatePreview);
+		dinoLineColorToggle.addEventListener("change", updatePreview);
 	}
 
 	const saveNicknameBtn = document.getElementById("saveNicknameBtn");
 	if (saveNicknameBtn) {
 		saveNicknameBtn.addEventListener("click", function () {
 			const newNickname = document.getElementById("nicknameInput").value.trim();
-
-			if (newNickname) {
-				localStorage.setItem("dinerUserNickname", newNickname);
-				document.getElementById("user-nickname").innerHTML = newNickname + ' <span class="material-symbols-outlined" style="font-size: 12px; vertical-align: middle;">edit</span>';
-				document.getElementById("user-name").textContent = newNickname;
-			} else {
-				localStorage.removeItem("dinerUserNickname");
-				document.getElementById("user-nickname").innerHTML = '프로필 설정 <span class="material-symbols-outlined" style="font-size: 12px; vertical-align: middle;">edit</span>';
-				const savedUserStr = localStorage.getItem("dinerUserInfo");
-				if (savedUserStr) {
-					document.getElementById("user-name").textContent = JSON.parse(savedUserStr).name;
-				}
+			if (!newNickname) {
+				showToast("닉네임을 입력해주세요.", "danger");
+				return;
 			}
 
-			if (tempBase64Image) {
-				localStorage.setItem("dinerUserProfileImage", tempBase64Image);
-				document.getElementById("profile-img").src = tempBase64Image;
+			const bodyColor = document.getElementById("dinoBodyColor").value;
+			const bgColor = document.getElementById("dinoBgColor").value;
+			const isWhite = document.getElementById("dinoLineColorToggle").checked;
+			const lineColor = isWhite ? "white" : "black";
+
+			localStorage.setItem("dinerUserNickname", newNickname);
+			localStorage.setItem("dinoBodyColor", bodyColor);
+			localStorage.setItem("dinoBgColor", bgColor);
+			localStorage.setItem("dinoLineColor", lineColor);
+
+			document.getElementById("user-nickname").innerHTML = newNickname + ' <span class="material-symbols-outlined" style="font-size: 12px; vertical-align: middle;">edit</span>';
+			document.getElementById("user-name").textContent = newNickname;
+
+			const savedUserStr = localStorage.getItem("dinerUserInfo");
+			if (savedUserStr) {
+				const userInfo = JSON.parse(savedUserStr);
+				
+				showLoadingToast("프로필을 저장하는 중입니다...");
+				fetch("https://script.google.com/macros/s/AKfycbwHeRs4tqgNwsBIR4AVIKIAMuTTjAl6Ez4unnqWv94wfZxtbwSq-WO05w6guaiCbALelA/exec", {
+					method: "POST",
+					headers: { "Content-Type": "text/plain;charset=utf-8" },
+					body: JSON.stringify({
+						action: "saveUser",
+						email: userInfo.email,
+						nickname: newNickname,
+						dinoBodyColor: bodyColor,
+						dinoBgColor: bgColor,
+						dinoLineColor: lineColor
+					})
+				})
+				.then(res => res.json())
+				.then(data => {
+					if (data.success) {
+						if (typeof generateDinoAvatar === "function") {
+							generateDinoAvatar(bodyColor, bgColor, lineColor, function(avatarUrl) {
+								localStorage.setItem("dinerUserProfileImage", avatarUrl);
+								document.getElementById("profile-img").src = avatarUrl;
+								
+								let usersCache = [];
+								const cached = localStorage.getItem("dinerUsersCache");
+								if (cached) {
+									try {
+										usersCache = JSON.parse(cached);
+									} catch(e) {}
+								}
+								const userIdx = usersCache.findIndex(u => u.Email === userInfo.email);
+								if (userIdx !== -1) {
+									usersCache[userIdx].Nickname = newNickname;
+									usersCache[userIdx].DinoBodyColor = bodyColor;
+									usersCache[userIdx].DinoBgColor = bgColor;
+									usersCache[userIdx].DinoLineColor = lineColor;
+								} else {
+									usersCache.push({
+										Email: userInfo.email,
+										Nickname: newNickname,
+										DinoBodyColor: bodyColor,
+										DinoBgColor: bgColor,
+										DinoLineColor: lineColor
+									});
+								}
+								localStorage.setItem("dinerUsersCache", JSON.stringify(usersCache));
+								
+								hideLoadingToast("프로필 저장 완료!");
+								window.needsServerSync = true;
+								if (window.appCalendar) {
+									window.appCalendar.refetchEvents();
+								}
+							});
+						}
+					} else {
+						hideLoadingToast("프로필 저장 실패");
+					}
+				})
+				.catch(err => {
+					console.error(err);
+					hideLoadingToast("서버 연결 실패");
+				});
 			}
 
 			const modal = bootstrap.Modal.getInstance(nicknameModalEl) || bootstrap.Modal.getOrCreateInstance(nicknameModalEl);
@@ -656,15 +755,52 @@ function updateUserProfile(idToken) {
 		.then(userInfo => {
 			localStorage.setItem("dinerUserInfo", JSON.stringify(userInfo));
 
-			const savedProfileImage = localStorage.getItem("dinerUserProfileImage");
-			document.getElementById("profile-img").src = savedProfileImage || userInfo.picture;
+			let usersCache = [];
+			const cached = localStorage.getItem("dinerUsersCache");
+			if (cached) {
+				try {
+					usersCache = JSON.parse(cached);
+				} catch (e) {}
+			}
 
-			const savedNickname = localStorage.getItem("dinerUserNickname");
-			document.getElementById("user-name").textContent = savedNickname || userInfo.name;
-			if (savedNickname) {
-				document.getElementById("user-nickname").innerHTML = savedNickname + ' <span class="material-symbols-outlined" style="font-size: 12px; vertical-align: middle;">edit</span>';
+			const dbUser = usersCache.find(u => u.Email === userInfo.email);
+
+			if (dbUser) {
+				localStorage.setItem("dinerUserNickname", dbUser.Nickname);
+				localStorage.setItem("dinoBodyColor", dbUser.DinoBodyColor);
+				localStorage.setItem("dinoBgColor", dbUser.DinoBgColor);
+				localStorage.setItem("dinoLineColor", dbUser.DinoLineColor || "black");
+
+				document.getElementById("user-name").textContent = dbUser.Nickname;
+				document.getElementById("user-nickname").innerHTML = dbUser.Nickname + ' <span class="material-symbols-outlined" style="font-size: 12px; vertical-align: middle;">edit</span>';
+
+				if (typeof generateDinoAvatar === "function") {
+					generateDinoAvatar(dbUser.DinoBodyColor, dbUser.DinoBgColor, dbUser.DinoLineColor || "black", function(avatarUrl) {
+						localStorage.setItem("dinerUserProfileImage", avatarUrl);
+						document.getElementById("profile-img").src = avatarUrl;
+					});
+				}
 			} else {
+				document.getElementById("user-name").textContent = userInfo.name;
 				document.getElementById("user-nickname").innerHTML = '프로필 설정 <span class="material-symbols-outlined" style="font-size: 12px; vertical-align: middle;">edit</span>';
+
+				const bodyColor = "#A3D9C9";
+				const bgColor = "#FAF8F5";
+				const lineColor = "black";
+				if (typeof generateDinoAvatar === "function") {
+					generateDinoAvatar(bodyColor, bgColor, lineColor, function(avatarUrl) {
+						localStorage.setItem("dinerUserProfileImage", avatarUrl);
+						document.getElementById("profile-img").src = avatarUrl;
+					});
+				}
+
+				setTimeout(() => {
+					const nicknameModalEl = document.getElementById('nicknameModal');
+					if (nicknameModalEl) {
+						const modal = bootstrap.Modal.getInstance(nicknameModalEl) || bootstrap.Modal.getOrCreateInstance(nicknameModalEl);
+						if (modal) modal.show();
+					}
+				}, 500);
 			}
 
 			document.getElementById("login-btn-area").classList.add("hidden");
@@ -750,6 +886,11 @@ function handleDateOrEventClick(clickedDateStr) {
 	if (window.isLongPressActive) {
 		return;
 	}
+	window.selectedActiveDate = clickedDateStr;
+	updateDailyEventsList(clickedDateStr);
+}
+
+function updateDailyEventsList(clickedDateStr) {
 	const savedUserStr = localStorage.getItem("dinerUserInfo");
 	if (!savedUserStr) {
 		showToast("로그인이 필요합니다. 먼저 로그인을 진행해주세요.", "danger");
@@ -759,28 +900,115 @@ function handleDateOrEventClick(clickedDateStr) {
 	const currentName = userInfo.name;
 	const currentNickname = localStorage.getItem("dinerUserNickname");
 
-	// 현재 캘린더의 모든 이벤트 가져오기
 	const allEvents = window.appCalendar.getEvents();
+	const dailyEvents = allEvents.filter(event => event.startStr.split('T')[0] === clickedDateStr);
 
-	// 해당 날짜의 내 이벤트가 있는지 확인
-	const myEventOnThisDate = allEvents.find(event => {
-		const eventDateStr = event.startStr.split('T')[0];
-		if (eventDateStr !== clickedDateStr) return false;
+	const parts = clickedDateStr.split("-");
+	const formattedDate = `${parseInt(parts[1])}월 ${parseInt(parts[2])}일 참석 희망자 목록 (${dailyEvents.length}명)`;
+	
+	const titleEl = document.getElementById("selected-date-title");
+	if (titleEl) {
+		titleEl.textContent = formattedDate;
+	}
 
+	const listEl = document.getElementById("daily-events-list");
+	if (listEl) {
+		listEl.innerHTML = "";
+		if (dailyEvents.length === 0) {
+			listEl.innerHTML = `<div class="text-center text-muted py-3 fs-7">등록된 참석 희망자가 없습니다.</div>`;
+		} else {
+			dailyEvents.forEach(event => {
+				const eventTitle = event.title || event.extendedProps.name;
+				const eventOrigName = event.extendedProps.originalName;
+				let usersCache = [];
+				try {
+					usersCache = JSON.parse(localStorage.getItem("dinerUsersCache") || "[]");
+				} catch(e) {}
+
+				const user = usersCache.find(u => 
+					(eventTitle && u.Nickname === eventTitle) || 
+					(eventOrigName && u.Nickname === eventOrigName) || 
+					(eventOrigName && u.Email === eventOrigName)
+				);
+				let bodyColor = "#A3D9C9";
+				let bgColor = "#FAF8F5";
+				let isWhiteLine = "black";
+
+				if (user) {
+					bodyColor = user.DinoBodyColor;
+					bgColor = user.DinoBgColor;
+					isWhiteLine = user.DinoLineColor || "black";
+				} else {
+					if (eventTitle === currentName || eventTitle === currentNickname || eventOrigName === currentName) {
+						bodyColor = localStorage.getItem("dinoBodyColor") || "#A3D9C9";
+						bgColor = localStorage.getItem("dinoBgColor") || "#FAF8F5";
+						isWhiteLine = localStorage.getItem("dinoLineColor") || "black";
+					}
+				}
+
+				const cacheKey = `${bodyColor}_${bgColor}_${isWhiteLine}`;
+				let profileImage = window.dinoAvatarCache[cacheKey] || "resource/image/default-profile.png";
+				const memo = event.extendedProps.reason || "메모 없음";
+
+				const itemHtml = `
+					<div class="d-flex align-items-center gap-3 p-2 rounded-3 bg-light">
+						<img src="${profileImage}" class="rounded-circle border border-2 border-white shadow-sm" style="width: 36px; height: 36px; object-fit: cover;">
+						<div class="flex-grow-1">
+							<div class="fw-bold text-dark fs-6">${eventOwner}</div>
+							<div class="text-muted fs-7">${memo}</div>
+						</div>
+					</div>
+				`;
+				listEl.insertAdjacentHTML("beforeend", itemHtml);
+			});
+		}
+	}
+
+	const myEvent = dailyEvents.find(event => {
 		const eventOwner = event.extendedProps.originalName || event.extendedProps.name || event.title;
 		return (eventOwner === currentName || eventOwner === currentNickname);
 	});
 
-	if (myEventOnThisDate) {
-		// 내가 이미 체크한 경우 -> 해제 모달 띄우기 (본인만 해제 가능)
-		$("#deleteEventDate").val(clickedDateStr);
-		$("#deleteEventModal").modal("show");
-	} else {
-		// 체크하지 않은 경우 -> 등록 모달 띄우기
-		$("#selectedDate").val(clickedDateStr);
-		$("#eventModal").modal("show");
+	const actionEl = document.getElementById("daily-events-action");
+	if (actionEl) {
+		actionEl.innerHTML = "";
+		if (myEvent) {
+			actionEl.innerHTML = `
+				<button class="btn btn-danger rounded-pill px-4" onclick="triggerDeleteEvent('${clickedDateStr}')">참석 취소하기</button>
+			`;
+		} else {
+			actionEl.innerHTML = `
+				<button class="btn btn-primary rounded-pill px-4" onclick="triggerAddEvent('${clickedDateStr}')">참석 등록하기</button>
+			`;
+		}
+	}
+
+	const containerEl = document.getElementById("daily-events-container");
+	if (containerEl) {
+		containerEl.classList.remove("d-none");
+		if (window.innerWidth < 768) {
+			const mainContainer = document.getElementById("main-container");
+			if (mainContainer) {
+				setTimeout(() => {
+					mainContainer.scrollTo({
+						top: containerEl.offsetTop - 80,
+						behavior: "smooth"
+					});
+				}, 100);
+			}
+		}
 	}
 }
+
+window.triggerAddEvent = function(dateStr) {
+	$("#selectedDate").val(dateStr);
+	$("#eventModal").modal("show");
+};
+
+window.triggerDeleteEvent = function(dateStr) {
+	$("#deleteEventDate").val(dateStr);
+	$("#deleteEventModal").modal("show");
+};
 
 function showToast(message, type = 'dark', delay = 3000) {
 	const toastEl = document.getElementById('appToast');
@@ -843,13 +1071,10 @@ function renderConfirmedDateBadges(events) {
 			const cellTop = document.querySelector(`.fc-daygrid-day[data-date="${dateStr}"] .fc-daygrid-day-top`);
 			if (cellTop) {
 				if (!cellTop.querySelector('.confirmed-badge')) {
-					const badge = document.createElement('span');
-					badge.className = 'material-symbols-outlined text-warning confirmed-badge ms-1 align-middle';
-					badge.style.fontSize = '15px';
-					badge.style.cursor = 'pointer';
+					const badge = document.createElement('img');
+					badge.className = 'confirmed-badge';
+					badge.src = 'resource/image/confirmed-badge.png';
 					badge.title = '5인 이상 참석 확정!';
-					badge.textContent = 'workspace_premium'; // 상장/훈장 느낌의 아이콘!
-
 					cellTop.appendChild(badge);
 				}
 			}
@@ -1162,4 +1387,169 @@ window.openEditScheduleModal = function (id, title) {
 	const modalEl = document.getElementById("editScheduleModal");
 	const modal = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
 	if (modal) modal.show();
+};
+
+window.dinoAvatarCache = {};
+
+window.generateDinoAvatar = function(bodyColor, bgColor, isWhiteLine, callback) {
+	if (typeof isWhiteLine === "function") {
+		callback = isWhiteLine;
+		isWhiteLine = false;
+	}
+
+	const cacheKey = `${bodyColor}_${bgColor}_${isWhiteLine}`;
+	if (window.dinoAvatarCache[cacheKey]) {
+		callback(window.dinoAvatarCache[cacheKey]);
+		return;
+	}
+
+	const canvas = document.createElement("canvas");
+	canvas.width = 120;
+	canvas.height = 120;
+	const ctx = canvas.getContext("2d");
+
+	ctx.fillStyle = bgColor || "#FAF8F5";
+	ctx.fillRect(0, 0, 120, 120);
+
+	const maskImg = new Image();
+	maskImg.src = "resource/image/dino_mask.png";
+	maskImg.onload = function() {
+		const tempCanvas = document.createElement("canvas");
+		tempCanvas.width = 120;
+		tempCanvas.height = 120;
+		const tempCtx = tempCanvas.getContext("2d");
+
+		// 패딩을 주어 중앙에 84x84 크기로 렌더링 (상하좌우 18px 여백)
+		tempCtx.drawImage(maskImg, 18, 18, 84, 84);
+		tempCtx.globalCompositeOperation = "source-in";
+		tempCtx.fillStyle = bodyColor || "#A3D9C9";
+		tempCtx.fillRect(18, 18, 84, 84);
+
+		ctx.drawImage(tempCanvas, 0, 0);
+
+		const lineImg = new Image();
+		lineImg.src = "resource/image/dino_line.png";
+		lineImg.onload = function() {
+			const tempLineCanvas = document.createElement("canvas");
+			tempLineCanvas.width = 120;
+			tempLineCanvas.height = 120;
+			const tempLineCtx = tempLineCanvas.getContext("2d");
+
+			tempLineCtx.drawImage(lineImg, 18, 18, 84, 84);
+			if (isWhiteLine === true || isWhiteLine === "white" || isWhiteLine === "true") {
+				tempLineCtx.globalCompositeOperation = "source-in";
+				tempLineCtx.fillStyle = "#FFFFFF";
+				tempLineCtx.fillRect(18, 18, 84, 84);
+			}
+
+			ctx.drawImage(tempLineCanvas, 0, 0);
+			const dataUrl = canvas.toDataURL("image/png");
+			window.dinoAvatarCache[cacheKey] = dataUrl;
+			callback(dataUrl);
+		};
+	};
+};
+
+window.drawDinoPreview = function(bodyColor, bgColor, isWhiteLine) {
+	const canvas = document.getElementById("profilePreviewCanvas");
+	if (!canvas) return;
+	const ctx = canvas.getContext("2d");
+	ctx.clearRect(0, 0, 80, 80);
+	
+	ctx.fillStyle = bgColor || "#FAF8F5";
+	ctx.fillRect(0, 0, 80, 80);
+
+	const maskImg = new Image();
+	maskImg.src = "resource/image/dino_mask.png";
+	maskImg.onload = function() {
+		const tempCanvas = document.createElement("canvas");
+		tempCanvas.width = 80;
+		tempCanvas.height = 80;
+		const tempCtx = tempCanvas.getContext("2d");
+
+		// 패딩을 주어 중앙에 56x56 크기로 렌더링 (상하좌우 12px 여백)
+		tempCtx.drawImage(maskImg, 12, 12, 56, 56);
+		tempCtx.globalCompositeOperation = "source-in";
+		tempCtx.fillStyle = bodyColor || "#A3D9C9";
+		tempCtx.fillRect(12, 12, 56, 56);
+
+		ctx.drawImage(tempCanvas, 0, 0);
+
+		const lineImg = new Image();
+		lineImg.src = "resource/image/dino_line.png";
+		lineImg.onload = function() {
+			const tempLineCanvas = document.createElement("canvas");
+			tempLineCanvas.width = 80;
+			tempLineCanvas.height = 80;
+			const tempLineCtx = tempLineCanvas.getContext("2d");
+
+			tempLineCtx.drawImage(lineImg, 12, 12, 56, 56);
+			if (isWhiteLine === true || isWhiteLine === "white" || isWhiteLine === "true") {
+				tempLineCtx.globalCompositeOperation = "source-in";
+				tempLineCtx.fillStyle = "#FFFFFF";
+				tempLineCtx.fillRect(12, 12, 56, 56);
+			}
+
+			ctx.drawImage(tempLineCanvas, 0, 0);
+		};
+	};
+};
+
+window.pregenerateAllUserAvatars = function(callback) {
+	let usersCache = [];
+	const cached = localStorage.getItem("dinerUsersCache");
+	if (cached) {
+		try {
+			usersCache = JSON.parse(cached);
+		} catch(e) {}
+	}
+
+	const savedUserStr = localStorage.getItem("dinerUserInfo");
+	if (savedUserStr) {
+		const userInfo = JSON.parse(savedUserStr);
+		const myNickname = localStorage.getItem("dinerUserNickname");
+		const myBody = localStorage.getItem("dinoBodyColor") || "#A3D9C9";
+		const myBg = localStorage.getItem("dinoBgColor") || "#FAF8F5";
+		const myLine = localStorage.getItem("dinoLineColor") || "black";
+		if (!usersCache.some(u => u.Email === userInfo.email)) {
+			usersCache.push({
+				Email: userInfo.email,
+				Nickname: myNickname || userInfo.name,
+				DinoBodyColor: myBody,
+				DinoBgColor: myBg,
+				DinoLineColor: myLine
+			});
+		}
+	}
+
+	if (!usersCache.some(u => u.Nickname === "default")) {
+		usersCache.push({
+			Nickname: "default",
+			DinoBodyColor: "#A3D9C9",
+			DinoBgColor: "#FAF8F5",
+			DinoLineColor: "black"
+		});
+	}
+
+	let remaining = usersCache.length;
+	if (remaining === 0) {
+		if (callback) callback();
+		return;
+	}
+
+	usersCache.forEach(user => {
+		if (typeof generateDinoAvatar === "function") {
+			generateDinoAvatar(user.DinoBodyColor, user.DinoBgColor, user.DinoLineColor || "black", function() {
+				remaining--;
+				if (remaining === 0 && callback) {
+					callback();
+				}
+			});
+		} else {
+			remaining--;
+			if (remaining === 0 && callback) {
+				callback();
+			}
+		}
+	});
 };
