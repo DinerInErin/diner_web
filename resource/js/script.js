@@ -160,6 +160,37 @@ document.addEventListener("DOMContentLoaded", async function () {
 								localStorage.setItem("dinerSchedulesCache", JSON.stringify(schedulesArray));
 								if (data.users) {
 									localStorage.setItem("dinerUsersCache", JSON.stringify(data.users));
+
+									const savedUserStr = localStorage.getItem("dinerUserInfo");
+									if (savedUserStr) {
+										try {
+											const userInfo = JSON.parse(savedUserStr);
+											const dbUser = data.users.find(u => u.Email === userInfo.email);
+											if (dbUser) {
+												localStorage.setItem("dinerUserNickname", dbUser.Nickname);
+												localStorage.setItem("dinoBodyColor", dbUser.DinoBodyColor);
+												localStorage.setItem("dinoBgColor", dbUser.DinoBgColor);
+												localStorage.setItem("dinoLineColor", dbUser.DinoLineColor || "black");
+
+												const nameEl = document.getElementById("user-name");
+												const nicknameEl = document.getElementById("user-nickname");
+												if (nameEl) nameEl.textContent = dbUser.Nickname;
+												if (nicknameEl) {
+													nicknameEl.innerHTML = dbUser.Nickname + ' <span class="material-symbols-outlined" style="font-size: 12px; vertical-align: middle;">edit</span>';
+												}
+
+												if (typeof generateDinoAvatar === "function") {
+													generateDinoAvatar(dbUser.DinoBodyColor, dbUser.DinoBgColor, dbUser.DinoLineColor || "black", function(avatarUrl) {
+														localStorage.setItem("dinerUserProfileImage", avatarUrl);
+														const profileImgEl = document.getElementById("profile-img");
+														if (profileImgEl) profileImgEl.src = avatarUrl;
+													});
+												}
+											}
+										} catch (e) {
+											console.error("Failed to sync current user profile with server data", e);
+										}
+									}
 								}
 							} else if (Array.isArray(data)) {
 								eventsArray = data;
@@ -1248,9 +1279,9 @@ function initSchedulePage() {
 		form.onsubmit = function (e) {
 			e.preventDefault();
 			const dateVal = document.getElementById("sched-date").value;
+			const timeVal = document.getElementById("sched-time").value || "21:00";
 			const titleVal = document.getElementById("sched-title").value;
 			
-			// 체크된 체크박스로부터 참석자 명단 생성
 			const checkedCheckboxes = document.querySelectorAll('.sched-user-checkbox:checked');
 			const attendeesVal = Array.from(checkedCheckboxes).map(cb => cb.value).join(", ");
 
@@ -1262,11 +1293,19 @@ function initSchedulePage() {
 
 			showLoadingToast("새 수동 일정을 등록하는 중입니다...");
 
+			const idVal = "manual_" + Date.now();
+			const userInfo = JSON.parse(savedUserStr);
+			const createdByVal = userInfo.nickname || userInfo.name || userInfo.email || "User";
+
 			const payload = {
 				action: "saveSchedule",
+				id: idVal,
 				date: dateVal,
+				time: timeVal,
 				title: titleVal,
-				attendees: attendeesVal
+				createdBy: createdByVal,
+				participants: attendeesVal,
+				type: "manual"
 			};
 
 			fetch("https://script.google.com/macros/s/AKfycbwHeRs4tqgNwsBIR4AVIKIAMuTTjAl6Ez4unnqWv94wfZxtbwSq-WO05w6guaiCbALelA/exec", {
@@ -1302,22 +1341,34 @@ function initSchedulePage() {
 		saveEditBtn.onclick = function () {
 			const idVal = document.getElementById("edit-sched-id").value;
 			const titleVal = document.getElementById("edit-sched-title").value;
+			const dateVal = document.getElementById("edit-sched-date").value;
+			const timeVal = document.getElementById("edit-sched-time").value || "21:00";
 
 			if (!titleVal.trim()) {
 				showToast("일정 이름을 입력해 주세요.", "danger");
 				return;
 			}
+			if (!dateVal) {
+				showToast("날짜를 입력해 주세요.", "danger");
+				return;
+			}
+
+			const checkedCheckboxes = document.querySelectorAll('.edit-sched-user-checkbox:checked');
+			const participantsVal = Array.from(checkedCheckboxes).map(cb => cb.value).join(", ");
 
 			const modalEl = document.getElementById("editScheduleModal");
 			const modal = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
 			if (modal) modal.hide();
 
-			showLoadingToast("일정 이름을 변경하는 중입니다...");
+			showLoadingToast("일정을 수정하는 중입니다...");
 
 			const payload = {
 				action: "updateSchedule",
 				id: idVal,
-				title: titleVal
+				title: titleVal,
+				date: dateVal,
+				time: timeVal,
+				participants: participantsVal
 			};
 
 			fetch("https://script.google.com/macros/s/AKfycbwHeRs4tqgNwsBIR4AVIKIAMuTTjAl6Ez4unnqWv94wfZxtbwSq-WO05w6guaiCbALelA/exec", {
@@ -1328,11 +1379,11 @@ function initSchedulePage() {
 				.then(res => res.json())
 				.then(data => {
 					if (data.success) {
-						showToast("일정 이름이 변경되었습니다!", "success");
+						showToast("일정이 수정되었습니다!", "success");
 						fetchSchedulesAndEventsFromServer(range.start, range.end);
 					} else {
 						hideLoadingToast();
-						showToast("이름 수정 실패: " + data.error, "danger");
+						showToast("일정 수정 실패: " + data.error, "danger");
 					}
 				})
 				.catch(err => {
@@ -1345,6 +1396,16 @@ function initSchedulePage() {
 }
 
 function fetchSchedulesAndEventsFromServer(start, end) {
+	const listEl = document.getElementById("schedule-list");
+	if (listEl) {
+		listEl.innerHTML = `
+			<div class="text-center py-5 text-secondary border rounded-4 bg-light">
+				<div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+				<div class="mt-2 fw-semibold">일정을 동기화하는 중입니다.</div>
+			</div>
+		`;
+	}
+
 	fetch("https://script.google.com/macros/s/AKfycbwHeRs4tqgNwsBIR4AVIKIAMuTTjAl6Ez4unnqWv94wfZxtbwSq-WO05w6guaiCbALelA/exec")
 		.then(res => res.json())
 		.then(data => {
@@ -1355,11 +1416,9 @@ function fetchSchedulesAndEventsFromServer(start, end) {
 				eventsArray = data.events;
 				schedulesArray = data.schedules;
 
-				// 로컬 캐시 실시간 갱신
 				localStorage.setItem("dinerEventsCache", JSON.stringify(eventsArray));
 				localStorage.setItem("dinerSchedulesCache", JSON.stringify(schedulesArray));
 
-				// 참석자 체크박스 선택기 갱신
 				populateAttendeesSelector(eventsArray);
 				
 				renderSchedulesList(schedulesArray, start, end);
@@ -1376,12 +1435,38 @@ function renderSchedulesList(schedules, cycleStart, cycleEnd) {
 	const listEl = document.getElementById("schedule-list");
 	if (!listEl) return;
 
-	const filtered = schedules.filter(s => {
-		const d = new Date(s.date);
-		return d >= cycleStart && d <= cycleEnd;
+	const normalizedSchedules = schedules.map(s => {
+		const isReversed = s.title && s.title.includes('T') && s.date && !s.date.includes('T');
+		return {
+			id: s.id || '',
+			title: isReversed ? s.date : (s.title || ''),
+			date: isReversed ? s.title : (s.date || ''),
+			time: s.time || '21:00',
+			createdBy: isReversed ? (s.attendees || '') : (s.createdBy || ''),
+			participants: isReversed ? (s.isAuto || '') : (s.participants || ''),
+			type: s.type || (s.id && s.id.indexOf("auto_") === 0 ? "auto" : "manual"),
+			updatedAt: s.updatedAt || ''
+		};
 	});
 
-	filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
+	const allowedDates = [];
+	let curr = new Date(cycleStart);
+	const limit = new Date(cycleEnd);
+	while (curr <= limit) {
+		const yyyy = curr.getFullYear();
+		const mm = String(curr.getMonth() + 1).padStart(2, '0');
+		const dd = String(curr.getDate()).padStart(2, '0');
+		allowedDates.push(`${yyyy}-${mm}-${dd}`);
+		curr.setDate(curr.getDate() + 1);
+	}
+
+	const filtered = normalizedSchedules.filter(s => {
+		if (!s.date) return false;
+		const datePart = s.date.split('T')[0];
+		return allowedDates.includes(datePart);
+	});
+
+	filtered.sort((a, b) => a.date.localeCompare(b.date));
 
 	if (filtered.length === 0) {
 		listEl.innerHTML = `
@@ -1402,33 +1487,40 @@ function renderSchedulesList(schedules, cycleStart, cycleEnd) {
 		const dd = String(sDateObj.getDate()).padStart(2, '0');
 		const week = ["일", "월", "화", "수", "목", "금", "토"][sDateObj.getDay()];
 
-		const badgeHtml = s.isAuto
-			? `<span class="badge bg-warning text-dark d-flex align-items-center gap-1 px-3 py-2 rounded-pill"><span class="material-symbols-outlined" style="font-size: 14px;">workspace_premium</span>5인 이상 확정</span>`
-			: `<span class="badge bg-success text-white d-flex align-items-center gap-1 px-3 py-2 rounded-pill"><span class="material-symbols-outlined" style="font-size: 14px;">stylus</span>수동 일정</span>`;
+		const displayTitle = s.title || "일정";
+		const isManual = s.type === "manual";
+
+		const iconHtml = isManual
+			? `<span class="material-symbols-outlined text-secondary ms-1" style="font-size: 18px; vertical-align: middle; cursor: help;" data-bs-toggle="tooltip" data-bs-title="수동 등록 일정">edit_note</span>`
+			: '';
 
 		html += `
 			<div class="card border rounded-3 p-3 shadow-sm hover-shadow transition mb-2" style="background-color: #fcfcfc;">
 				<div class="d-flex justify-content-between align-items-start gap-2">
 					<div class="d-flex align-items-start gap-3">
-						<div class="text-center bg-dark text-white rounded-3 px-3 py-2 fw-bold" style="min-width: 75px;">
+						<div class="text-center bg-dark text-white rounded-3 px-2 py-2 fw-bold" style="min-width: 65px; flex-shrink: 0; white-space: nowrap;">
 							<div class="small" style="font-size: 11px;">${week}요일</div>
-							<div class="fs-4 lh-1 mt-1">${mm}/${dd}</div>
+							<div class="fs-4 lh-1 mt-1" style="font-size: 1.25rem !important;">${mm}/${dd}</div>
 						</div>
 						<div>
 							<div class="d-flex align-items-center gap-2">
-								<h5 class="fw-bold mb-0 text-dark" id="sched-title-${s.id}">${s.title}</h5>
-								<button class="btn btn-sm btn-link p-0 text-secondary d-flex align-items-center" onclick="openEditScheduleModal('${s.id}', '${s.title}')" title="일정 이름 수정">
+								<h5 class="fw-bold mb-0 text-dark" id="sched-title-${s.id}">${displayTitle}${iconHtml}</h5>
+								<button class="btn btn-sm btn-link p-0 text-secondary d-flex align-items-center" onclick="openEditScheduleModal('${s.id}', '${displayTitle}')" title="일정 이름 수정">
 									<span class="material-symbols-outlined" style="font-size: 16px;">edit</span>
 								</button>
 							</div>
-							<div class="text-secondary small mt-2 d-flex align-items-center gap-1">
-								<span class="material-symbols-outlined text-muted" style="font-size: 16px;">group</span>
-								<span class="fw-semibold text-dark">참석자:</span> ${s.attendees || '없음'}
+							<div class="d-flex align-items-center gap-1 text-secondary small mt-1">
+								<span class="material-symbols-outlined text-muted" style="font-size: 16px;">schedule</span>
+								<span>시간: <span class="fw-bold text-dark">${s.time || "21:00"}</span></span>
+							</div>
+							<div class="text-secondary small mt-2 d-flex align-items-start gap-1 flex-wrap">
+								<div class="d-flex align-items-center gap-1" style="white-space: nowrap; flex-shrink: 0;">
+									<span class="material-symbols-outlined text-muted" style="font-size: 16px;">group</span>
+									<span class="fw-semibold text-dark">참석자:</span>
+								</div>
+								<span class="text-secondary text-break">${s.participants || '없음'}</span>
 							</div>
 						</div>
-					</div>
-					<div>
-						${badgeHtml}
 					</div>
 				</div>
 			</div>
@@ -1436,6 +1528,16 @@ function renderSchedulesList(schedules, cycleStart, cycleEnd) {
 	});
 
 	listEl.innerHTML = html;
+
+	if (window.activeScheduleTooltips) {
+		window.activeScheduleTooltips.forEach(t => {
+			try { t.dispose(); } catch (e) {}
+		});
+	}
+	window.activeScheduleTooltips = [];
+
+	const tooltipTriggerList = listEl.querySelectorAll('[data-bs-toggle="tooltip"]');
+	window.activeScheduleTooltips = Array.from(tooltipTriggerList).map(el => new bootstrap.Tooltip(el));
 }
 
 // 캘린더 참석 데이터를 기반으로 고유한 실사용자 목록 추출 후 체크박스 선택기 동적 빌드
@@ -1470,13 +1572,100 @@ function populateAttendeesSelector(events) {
 		`;
 	});
 	listEl.innerHTML = html;
+
+	listEl.addEventListener('wheel', function(e) {
+		e.stopPropagation();
+	}, { passive: false });
+
+	listEl.addEventListener('touchmove', function(e) {
+		e.stopPropagation();
+	}, { passive: false });
 }
 
 window.openEditScheduleModal = function (id, title) {
+	const cachedSchedulesStr = localStorage.getItem("dinerSchedulesCache");
+	let sched = null;
+	if (cachedSchedulesStr) {
+		try {
+			const arr = JSON.parse(cachedSchedulesStr);
+			const normalized = arr.map(s => {
+				const isReversed = s.title && s.title.includes('T') && s.date && !s.date.includes('T');
+				return {
+					id: s.id || '',
+					title: isReversed ? s.date : (s.title || ''),
+					date: isReversed ? s.title : (s.date || ''),
+					time: s.time || '21:00',
+					createdBy: isReversed ? (s.attendees || '') : (s.createdBy || ''),
+					participants: isReversed ? (s.isAuto || '') : (s.participants || ''),
+					type: s.type || (s.id && s.id.indexOf("auto_") === 0 ? "auto" : "manual"),
+					updatedAt: s.updatedAt || ''
+				};
+			});
+			sched = normalized.find(s => s.id === id);
+		} catch(e) {
+			console.error(e);
+		}
+	}
+
+	if (!sched) {
+		showToast("일정 정보를 찾을 수 없습니다.", "danger");
+		return;
+	}
+
 	document.getElementById("edit-sched-id").value = id;
-	document.getElementById("edit-sched-title").value = title;
+	document.getElementById("edit-sched-title").value = sched.title || '';
+	document.getElementById("edit-sched-date").value = sched.date ? sched.date.split('T')[0] : '';
+	document.getElementById("edit-sched-time").value = sched.time || '21:00';
+
+	const cachedEventsStr = localStorage.getItem("dinerEventsCache");
+	const editAttendeesListEl = document.getElementById("edit-sched-attendees-list");
+	if (editAttendeesListEl && cachedEventsStr) {
+		try {
+			const events = JSON.parse(cachedEventsStr);
+			const users = {};
+			events.forEach(ev => {
+				const displayName = ev.nickname || ev.title;
+				if (displayName && displayName.trim()) {
+					users[displayName.trim()] = true;
+				}
+			});
+			const uniqueUsers = Object.keys(users).sort();
+			
+			const currentParticipants = sched.participants
+				? sched.participants.split(',').map(p => p.trim())
+				: [];
+
+			let html = '';
+			uniqueUsers.forEach((user, index) => {
+				const isChecked = currentParticipants.includes(user) ? 'checked' : '';
+				html += `
+					<div class="form-check mb-1">
+						<input class="form-check-input edit-sched-user-checkbox" type="checkbox" value="${user}" id="editUserCheck-${index}" ${isChecked}>
+						<label class="form-check-label small text-dark fw-medium" for="editUserCheck-${index}" style="cursor: pointer;">
+							${user}
+						</label>
+					</div>
+				`;
+			});
+			editAttendeesListEl.innerHTML = html || `<span class="text-muted small">동기화된 사용자가 없습니다.</span>`;
+
+			editAttendeesListEl.addEventListener('wheel', function(e) {
+				e.stopPropagation();
+			}, { passive: false });
+
+			editAttendeesListEl.addEventListener('touchmove', function(e) {
+				e.stopPropagation();
+			}, { passive: false });
+		} catch(e) {
+			console.error(e);
+		}
+	}
 
 	const modalEl = document.getElementById("editScheduleModal");
+	if (modalEl && modalEl.parentNode !== document.body) {
+		document.body.appendChild(modalEl);
+	}
+
 	const modal = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
 	if (modal) modal.show();
 };

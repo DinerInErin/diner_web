@@ -36,6 +36,11 @@
             <input type="date" class="form-control rounded-3" id="sched-date" placeholder="날짜" required>
             <label for="sched-date" class="text-secondary">날짜</label>
           </div>
+
+          <div class="form-floating mb-3">
+            <input type="time" class="form-control rounded-3" id="sched-time" value="21:00" required>
+            <label for="sched-time" class="text-secondary">시간</label>
+          </div>
           
           <div class="form-floating mb-3">
             <input type="text" class="form-control rounded-3" id="sched-title" placeholder="일정 이름" required>
@@ -47,7 +52,7 @@
               <span class="material-symbols-outlined" style="font-size: 16px;">group</span>
               참석자 선택
             </label>
-            <div id="sched-attendees-list" class="border rounded-3 p-3 bg-light scrollable-users-list" style="max-height: 150px; overflow-y: auto;">
+            <div id="sched-attendees-list" class="border rounded-3 p-3 bg-light scrollable-users-list" style="position: relative;">
               <span class="text-muted small">동기화된 사용자가 없습니다.</span>
             </div>
           </div>
@@ -62,7 +67,7 @@
     </div>
   </div>
 
-  <!-- 일정 이름 수정 모달 -->
+  <!-- 일정 수정 모달 -->
   <div class="modal fade custom-anim-modal" id="editScheduleModal" tabindex="-1"
     aria-labelledby="editScheduleModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -70,15 +75,36 @@
         <div class="modal-header bg-dark text-white rounded-top-4">
           <h5 class="modal-title fw-bold" id="editScheduleModalLabel">
             <span class="material-symbols-outlined align-middle me-1">edit_note</span>
-            일정 이름 수정
+            일정 수정
           </h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body p-4">
           <input type="hidden" id="edit-sched-id">
-          <div class="form-floating">
-            <input type="text" class="form-control" id="edit-sched-title" placeholder="새로운 일정 이름을 입력하세요" required>
+          
+          <div class="form-floating mb-3">
+            <input type="date" class="form-control rounded-3" id="edit-sched-date" placeholder="날짜" required>
+            <label for="edit-sched-date" class="text-secondary">날짜</label>
+          </div>
+
+          <div class="form-floating mb-3">
+            <input type="time" class="form-control rounded-3" id="edit-sched-time" required>
+            <label for="edit-sched-time" class="text-secondary">시간</label>
+          </div>
+
+          <div class="form-floating mb-3">
+            <input type="text" class="form-control rounded-3" id="edit-sched-title" placeholder="일정 이름" required>
             <label for="edit-sched-title" class="text-secondary">일정 이름</label>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold text-secondary d-flex align-items-center gap-1 mb-2">
+              <span class="material-symbols-outlined" style="font-size: 16px;">group</span>
+              참석자 수정
+            </label>
+            <div id="edit-sched-attendees-list" class="border rounded-3 p-3 bg-light scrollable-users-list" style="position: relative;">
+              <!-- JS로 동적 체크박스 렌더링 -->
+            </div>
           </div>
         </div>
         <div class="modal-footer border-0 pb-4 pe-4">

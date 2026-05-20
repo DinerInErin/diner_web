@@ -576,6 +576,21 @@ footer {
     display: none !important;
 }
 
+.fc-popover {
+    min-width: 160px !important;
+    width: max-content !important;
+    max-width: 250px !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15) !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    z-index: 1050 !important;
+}
+
+.fc-popover-body {
+    padding: 8px 12px !important;
+}
+
 .fc-popover .fc-event-title-text {
     display: inline-block !important;
     font-size: 11px !important;
@@ -587,22 +602,27 @@ footer {
 }
 
 .fc-popover .fc-event {
-    width: auto !important;
+    width: 100% !important;
     height: auto !important;
     border-radius: 0 !important;
     overflow: visible !important;
     background: transparent !important;
     margin-bottom: 6px !important;
-    display: block !important;
+    display: flex !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
 }
 
 .fc-popover .fc-event-main {
-    width: auto !important;
+    width: 100% !important;
     height: auto !important;
     border-radius: 0 !important;
     overflow: visible !important;
     display: flex !important;
     align-items: center !important;
+    justify-content: flex-start !important;
+    text-align: left !important;
+    padding: 2px 4px !important;
 }
 
 .fc-popover .fc-event-avatar {
@@ -610,4 +630,38 @@ footer {
     height: 22px !important;
     border-radius: 50% !important;
     object-fit: cover !important;
+}
+
+.fc-popover .fc-daygrid-event-harness {
+    margin-bottom: 8px !important;
+}
+
+.fc-popover .fc-daygrid-event-harness:last-child {
+    margin-bottom: 0 !important;
+}
+
+.fc-more-popover-misc {
+    display: none !important;
+}
+
+.scrollable-users-list {
+    position: relative;
+    max-height: 150px !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+.scrollable-users-list::-webkit-scrollbar {
+    width: 6px !important;
+    background: transparent !important;
+}
+
+.scrollable-users-list::-webkit-scrollbar-thumb {
+    background: #c1c1c1 !important;
+    border-radius: 3px !important;
+}
+
+.scrollable-users-list::-webkit-scrollbar-thumb:hover {
+    background: #a1a1a1 !important;
 }
