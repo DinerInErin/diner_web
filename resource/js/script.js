@@ -1641,10 +1641,10 @@ function renderSchedulesList(schedules, cycleStart, cycleEnd) {
 
 	if (filtered.length === 0) {
 		listEl.innerHTML = `
-			<div class="text-center py-5 text-secondary border rounded-4 bg-light">
+			<div class="text-center py-5 text-secondary border rounded-4 bg-light padding-5">
 				<span class="material-symbols-outlined text-muted" style="font-size: 48px;">event_busy</span>
 				<div class="mt-2 fw-semibold">이번 주간에 등록된 일정이 없습니다.</div>
-				<div class="small text-muted mt-1">캘린더에서 5명 이상 참석 체크 시 자동으로 일정이 생성됩니다.</div>
+				<div class="small text-muted mt-1">캘린더에서 5명 이상 참석 시 자동으로 일정이 생성됩니다.</div>
 				<div class="small text-muted mt-1">또는 수동으로 등록할 수도 있습니다.</div>
 			</div>
 		`;
@@ -1661,24 +1661,38 @@ function renderSchedulesList(schedules, cycleStart, cycleEnd) {
 		const displayTitle = s.title || "일정";
 		const isManual = s.type === "manual";
 
+        const deleteButtonHtml = isManual
+            ? `<button type="button"
+			    class="btn btn-link btn-sm p-0 text-secondary d-flex align-items-center text-decoration-none"
+			    onclick="deleteSchedule('${s.id}')"
+			    title="일정 삭제">
+			    <span class="material-symbols-outlined" style="font-size: 16px;">delete</span>
+		    </button>`
+            : '';
+
 		const iconHtml = isManual
-			? `<span class="material-symbols-outlined text-secondary ms-1" style="font-size: 18px; vertical-align: middle; cursor: help;" data-bs-toggle="tooltip" data-bs-title="수동 등록 일정">edit_note</span>`
+			? `<span class="material-symbols-outlined text-secondary ms-1" style="font-size: 18px; vertical-align: middle; cursor: help;" data-bs-toggle="tooltip" data-bs-title="수동 등록 일정">edit_calendar</span>`
 			: '';
 
 		html += `
 			<div class="card border rounded-3 p-3 shadow-sm hover-shadow transition mb-2" style="background-color: #fcfcfc;">
 				<div class="d-flex justify-content-between align-items-start gap-2">
-					<div class="d-flex align-items-start gap-3">
-						<div class="text-center bg-dark text-white rounded-3 px-2 py-2 fw-bold" style="min-width: 65px; flex-shrink: 0; white-space: nowrap;">
+					<div class="d-flex align-items-start gap-3" style="width: 100%;">
+						<div class="text-center bg-dark text-white rounded-3 px-2 py-2 fw-bold" style="min-width: 65px; flex-shrink: 0; white-space: nowrap; align-self: center;">
 							<div class="small" style="font-size: 11px;">${week}요일</div>
 							<div class="fs-4 lh-1 mt-1" style="font-size: 1.25rem !important;">${mm}/${dd}</div>
 						</div>
-						<div>
-							<div class="d-flex align-items-center gap-2">
-								<h5 class="fw-bold mb-0 text-dark" id="sched-title-${s.id}">${displayTitle}${iconHtml}</h5>
-								<button class="btn btn-sm btn-link p-0 text-secondary d-flex align-items-center" onclick="openEditScheduleModal('${s.id}', '${displayTitle}')" title="일정 이름 수정">
-									<span class="material-symbols-outlined" style="font-size: 16px;">edit</span>
-								</button>
+						<div style="width: 100%;">
+							<div class="d-flex align-items-center gap-2" style="justify-content: space-between;">
+						        <div>
+						            <h5 class="fw-bold mb-0 text-dark" id="sched-title-${s.id}">${displayTitle}${iconHtml}</h5>
+						        </div>
+						        <div style="display: flex;">
+                                    <button class="btn btn-link btn-sm p-0 text-secondary d-flex align-items-center text-decoration-none" onclick="openEditScheduleModal('${s.id}', '${displayTitle}')" title="일정 수정">
+                                        <span class="material-symbols-outlined" style="font-size: 16px;">edit</span>
+                                    </button>
+                                    ${deleteButtonHtml}
+								</div>
 							</div>
 							<div class="d-flex align-items-center gap-1 text-secondary small mt-1">
 								<span class="material-symbols-outlined text-muted" style="font-size: 16px;">schedule</span>
@@ -1843,6 +1857,73 @@ window.openEditScheduleModal = function (id, title) {
 
 	const modal = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
 	if (modal) modal.show();
+};
+
+window.deleteSchedule = function(id) {
+    if (!id) {
+        showToast("삭제할 일정 정보를 찾을 수 없습니다.", "danger");
+        return;
+    }
+
+    const cachedSchedulesStr = localStorage.getItem("dinerSchedulesCache");
+    let targetSchedule = null;
+
+    if (cachedSchedulesStr) {
+        try {
+            const schedules = JSON.parse(cachedSchedulesStr);
+            targetSchedule = schedules.find(s => s.id === id);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    const title = targetSchedule?.title || "이 일정";
+    const ok = confirm(`"${title}" 일정을 삭제할까요?`);
+
+    if (!ok) return;
+
+    showLoadingToast("일정을 삭제하는 중입니다...");
+
+    fetch("https://script.google.com/macros/s/AKfycbwHeRs4tqgNwsBIR4AVIKIAMuTTjAl6Ez4unnqWv94wfZxtbwSq-WO05w6guaiCbALelA/exec", {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+            action: "deleteSchedule",
+            id: id
+        })
+    })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                // 로컬 캐시에서도 먼저 제거
+                const cached = localStorage.getItem("dinerSchedulesCache");
+                if (cached) {
+                    try {
+                        let schedules = JSON.parse(cached);
+                        schedules = schedules.filter(s => s.id !== id);
+                        localStorage.setItem("dinerSchedulesCache", JSON.stringify(schedules));
+
+                        const range = getCurrentCycleRange();
+                        renderSchedulesList(schedules, range.start, range.end);
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
+
+                hideLoadingToast("일정이 삭제되었습니다.");
+
+                const range = getCurrentCycleRange();
+                fetchSchedulesAndEventsFromServer(range.start, range.end);
+            } else {
+                hideLoadingToast();
+                showToast("일정 삭제 실패: " + (data.error || "알 수 없는 오류"), "danger");
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            hideLoadingToast();
+            showToast("일정 삭제 중 오류가 발생했습니다.", "danger");
+        });
 };
 
 window.dinoAvatarCache = {};
