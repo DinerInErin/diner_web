@@ -666,3 +666,19 @@ footer {
 .scrollable-users-list::-webkit-scrollbar-thumb:hover {
     background: #a1a1a1 !important;
 }
+.profile-color-picker {
+    display: flex;
+    justify-content: center;
+    margin-top: 8px;
+}
+
+.profile-color-picker .pcr-button {
+    width: 42px;
+    height: 42px;
+    border-radius: 999px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.pcr-app {
+    z-index: 20000 !important;
+}

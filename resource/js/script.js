@@ -695,6 +695,14 @@ window.onload = function () {
             document.getElementById('dinoBgColor').value = bgColor;
             document.getElementById('dinoLineColorToggle').checked = (lineColor === "white");
 
+            if (bodyColorPickr) {
+                bodyColorPickr.setColor(bodyColor, true);
+            }
+
+            if (bgColorPickr) {
+                bgColorPickr.setColor(bgColor, true);
+            }
+
 			setTimeout(() => {
 				if (typeof drawDinoPreview === "function") {
 					drawDinoPreview(bodyColor, bgColor, lineColor);
@@ -717,6 +725,8 @@ window.onload = function () {
 		dinoBgColorInput.addEventListener("input", updatePreview);
 		dinoLineColorToggle.addEventListener("change", updatePreview);
 	}
+
+    initProfileColorPickers();
 
 	const saveNicknameBtn = document.getElementById("saveNicknameBtn");
 	if (saveNicknameBtn) {
@@ -1161,6 +1171,83 @@ function createNewUserProfile(userInfo) {
 }
 
 let loadingToastInstance = null;
+let bodyColorPickr = null;
+let bgColorPickr = null;
+
+function initProfileColorPickers() {
+    if (!window.Pickr) {
+        console.error("Pickr 라이브러리가 로드되지 않았습니다.");
+        return;
+    }
+
+    const bodyInput = document.getElementById("dinoBodyColor");
+    const bgInput = document.getElementById("dinoBgColor");
+
+    if (!bodyInput || !bgInput) return;
+
+    if (bodyColorPickr || bgColorPickr) return;
+
+    bodyColorPickr = createProfilePickr({
+        el: "#dinoBodyColorPicker",
+        defaultColor: normalizeHexColor(bodyInput.value || localStorage.getItem("dinoBodyColor"), "#A3D9C9"),
+        targetInput: bodyInput
+    });
+
+    bgColorPickr = createProfilePickr({
+        el: "#dinoBgColorPicker",
+        defaultColor: normalizeHexColor(bgInput.value || localStorage.getItem("dinoBgColor"), "#FAF8F5"),
+        targetInput: bgInput
+    });
+}
+
+function createProfilePickr({ el, defaultColor, targetInput }) {
+    const pickr = Pickr.create({
+        el,
+        theme: "classic",
+        default: defaultColor,
+
+        components: {
+            preview: true,
+            opacity: false,
+            hue: true,
+
+            interaction: {
+                hex: true,
+                rgba: true,
+                hsva: false,
+                input: true,
+                clear: false,
+                save: true
+            }
+        },
+
+        i18n: {
+            "btn:save": "적용",
+            "btn:clear": "초기화",
+            "btn:cancel": "취소"
+        }
+    });
+
+    function applyColor(color) {
+        if (!color) return;
+
+        const hex = color.toHEXA().toString(0).toUpperCase();
+
+        targetInput.value = hex;
+        targetInput.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    pickr.on("change", function(color) {
+        applyColor(color);
+    });
+
+    pickr.on("save", function(color, instance) {
+        applyColor(color);
+        instance.hide();
+    });
+
+    return pickr;
+}
 
 function closeMorePopover() {
     const closeBtn = document.querySelector(".fc-popover .fc-popover-close");
