@@ -189,31 +189,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                                             const dbUser = data.users.find(u => u.email === userInfo.email);
 
                                             if (dbUser) {
-                                                localStorage.setItem("dinerUserNickname", dbUser.nickname);
-                                                localStorage.setItem("dinoBodyColor", dbUser.dinoBodyColor);
-                                                localStorage.setItem("dinoBgColor", dbUser.dinoBgColor);
-                                                localStorage.setItem("dinoLineColor", dbUser.dinoLineColor || "black");
-
-                                                const nameEl = document.getElementById("user-name");
-                                                const nicknameEl = document.getElementById("user-nickname");
-
-                                                if (nameEl) nameEl.textContent = dbUser.nickname;
-                                                if (nicknameEl) {
-                                                    nicknameEl.innerHTML = dbUser.nickname + ' <span class="material-symbols-outlined" style="font-size: 12px; vertical-align: middle;">edit</span>';
-                                                }
-
-                                                if (typeof generateDinoAvatar === "function") {
-                                                    generateDinoAvatar(
-                                                        dbUser.dinoBodyColor,
-                                                        dbUser.dinoBgColor,
-                                                        dbUser.dinoLineColor || "black",
-                                                        function(avatarUrl) {
-                                                            localStorage.setItem("dinerUserProfileImage", avatarUrl);
-                                                            const profileImgEl = document.getElementById("profile-img");
-                                                            if (profileImgEl) profileImgEl.src = avatarUrl;
-                                                        }
-                                                    );
-                                                }
+                                                applyUserProfileToLocal(userInfo, dbUser);
                                             }
 										} catch (e) {
 											console.error("Failed to sync current user profile with server data", e);
@@ -672,8 +648,11 @@ window.onload = function () {
 	if (savedUserStr) {
 		const userInfo = JSON.parse(savedUserStr);
 		const savedNickname = localStorage.getItem("dinerUserNickname");
-		const bodyColor = localStorage.getItem("dinoBodyColor") || "#A3D9C9";
-		const bgColor = localStorage.getItem("dinoBgColor") || "#FAF8F5";
+        const bodyColor = normalizeHexColor(localStorage.getItem("dinoBodyColor"), "#A3D9C9");
+        const bgColor = normalizeHexColor(localStorage.getItem("dinoBgColor"), "#FAF8F5");
+
+        localStorage.setItem("dinoBodyColor", bodyColor);
+        localStorage.setItem("dinoBgColor", bgColor);
 
 		document.getElementById("user-name").textContent = savedNickname || userInfo.name;
 		if (savedNickname) {
@@ -704,14 +683,17 @@ window.onload = function () {
 			}
 
 			const currentNickname = localStorage.getItem("dinerUserNickname");
-			const bodyColor = localStorage.getItem("dinoBodyColor") || "#A3D9C9";
-			const bgColor = localStorage.getItem("dinoBgColor") || "#FAF8F5";
-			const lineColor = localStorage.getItem("dinoLineColor") || "black";
+            const bodyColor = normalizeHexColor(localStorage.getItem("dinoBodyColor"), "#A3D9C9");
+            const bgColor = normalizeHexColor(localStorage.getItem("dinoBgColor"), "#FAF8F5");
+            const lineColor = localStorage.getItem("dinoLineColor") || "black";
 
-			document.getElementById('nicknameInput').value = currentNickname || "";
-			document.getElementById('dinoBodyColor').value = bodyColor;
-			document.getElementById('dinoBgColor').value = bgColor;
-			document.getElementById('dinoLineColorToggle').checked = (lineColor === "white");
+            localStorage.setItem("dinoBodyColor", bodyColor);
+            localStorage.setItem("dinoBgColor", bgColor);
+
+            document.getElementById('nicknameInput').value = currentNickname || "";
+            document.getElementById('dinoBodyColor').value = bodyColor;
+            document.getElementById('dinoBgColor').value = bgColor;
+            document.getElementById('dinoLineColorToggle').checked = (lineColor === "white");
 
 			setTimeout(() => {
 				if (typeof drawDinoPreview === "function") {
@@ -745,8 +727,8 @@ window.onload = function () {
 				return;
 			}
 
-			const bodyColor = document.getElementById("dinoBodyColor").value;
-			const bgColor = document.getElementById("dinoBgColor").value;
+            const bodyColor = normalizeHexColor(document.getElementById("dinoBodyColor").value, "#A3D9C9");
+            const bgColor = normalizeHexColor(document.getElementById("dinoBgColor").value, "#FAF8F5");
 			const isWhite = document.getElementById("dinoLineColorToggle").checked;
 			const lineColor = isWhite ? "white" : "black";
 
@@ -918,8 +900,27 @@ function getUserLineColor(u) {
     return u.dinoLineColor || u.DinoLineColor || "black";
 }
 
+function normalizeEmail(email) {
+    return String(email || "").trim().toLowerCase();
+}
+
 function findUserByEmail(users, email) {
-    return (users || []).find(u => getUserEmail(u) === email);
+    const targetEmail = normalizeEmail(email);
+    return (users || []).find(u => normalizeEmail(getUserEmail(u)) === targetEmail);
+}
+
+function normalizeHexColor(value, fallback) {
+    const str = String(value || "").trim();
+
+    if (/^#[0-9a-fA-F]{6}$/.test(str)) {
+        return str;
+    }
+
+    if (/^#[0-9a-fA-F]{3}$/.test(str)) {
+        return "#" + str.slice(1).split("").map(ch => ch + ch).join("");
+    }
+
+    return fallback;
 }
 
 async function fetchUsersFromServer() {
@@ -984,8 +985,8 @@ function showLoggedOutArea() {
 function applyTemporaryGoogleProfile(userInfo) {
     const fallbackName = userInfo.name || userInfo.email || "사용자";
     const nickname = localStorage.getItem("dinerUserNickname") || fallbackName;
-    const bodyColor = localStorage.getItem("dinoBodyColor") || "#D0D0D0";
-    const bgColor = localStorage.getItem("dinoBgColor") || "#EAEAEA";
+    const bodyColor = normalizeHexColor(localStorage.getItem("dinoBodyColor"), "#D0D0D0");
+    const bgColor = normalizeHexColor(localStorage.getItem("dinoBgColor"), "#EAEAEA");
     const lineColor = localStorage.getItem("dinoLineColor") || "black";
 
     localStorage.setItem("dinerUserNickname", nickname);
@@ -1063,8 +1064,8 @@ async function updateUserProfile(idToken) {
 
 function applyUserProfileToLocal(userInfo, dbUser) {
     const nickname = getUserNickname(dbUser);
-    const bodyColor = getUserBodyColor(dbUser) || "#A3D9C9";
-    const bgColor = getUserBgColor(dbUser) || "#FAF8F5";
+    const bodyColor = normalizeHexColor(getUserBodyColor(dbUser), "#A3D9C9");
+    const bgColor = normalizeHexColor(getUserBgColor(dbUser), "#FAF8F5");
     const lineColor = getUserLineColor(dbUser);
 
     localStorage.setItem("dinerUserNickname", nickname);
