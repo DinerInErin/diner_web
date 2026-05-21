@@ -28,10 +28,11 @@
 <!--      </div>-->
       <div class="login-container p-3">
         <div class="login-btn-area" id="login-btn-area">
-          <button id="login-btn" class="btn btn-dark d-flex align-items-center gap-2 px-3 py-2 w-100">
-            <span class="material-symbols-outlined" style="font-size: 24px;">account_circle</span>
-            <span>로그인</span>
-          </button>
+<!--          <button id="login-btn" class="btn btn-dark d-flex align-items-center gap-2 px-3 py-2 w-100">-->
+<!--            <span class="material-symbols-outlined" style="font-size: 24px;">account_circle</span>-->
+<!--            <span>로그인</span>-->
+<!--          </button>-->
+            <div id="googleSignInButton"></div>
         </div>
         <div id="user-info" class="hidden d-flex align-items-center justify-content-between">
           <div class="d-flex align-items-center">
@@ -41,7 +42,7 @@
               <span id="user-nickname" class="text-white-50 mt-1" style="font-size: 12px; cursor: pointer; transition: color 0.2s;" onmouseover="this.classList.remove('text-white-50'); this.classList.add('text-white');" onmouseout="this.classList.remove('text-white'); this.classList.add('text-white-50');" data-bs-toggle="modal" data-bs-target="#nicknameModal">프로필 설정 <span class="material-symbols-outlined" style="font-size: 12px; vertical-align: middle;">edit</span></span>
             </div>
           </div>
-          <button id="logout-btn" class="btn btn-sm btn-outline-light ms-2" title="로그아웃">
+          <button id="logout-btn" class="btn btn-sm btn-outline-light ms-2 g_id_signout" title="로그아웃">
             <span class="material-symbols-outlined" style="font-size: 18px; vertical-align: middle;">logout</span>
           </button>
         </div>
@@ -146,7 +147,6 @@
       <div class="modal-content shadow border-0 rounded-4">
         <div class="modal-header bg-dark text-white rounded-top-4">
             <h5 class="modal-title fw-bold" id="eventModalTitle">참석 등록</h5>
-          </h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body p-4">
@@ -170,7 +170,6 @@
       <div class="modal-content shadow border-0 rounded-4">
         <div class="modal-header bg-danger text-white rounded-top-4">
             <h5 class="modal-title fw-bold" id="deleteEventModalTitle">참석 취소</h5>
-          </h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body p-4 text-center">

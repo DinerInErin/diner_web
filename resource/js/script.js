@@ -1,5 +1,6 @@
 let CLIENT_ID;
 let CLIENT_KEY;
+let GAS_URL = 'https://script.google.com/macros/s/AKfycbwHeRs4tqgNwsBIR4AVIKIAMuTTjAl6Ez4unnqWv94wfZxtbwSq-WO05w6guaiCbALelA/exec';
 window.isFirstLoad = true;
 window.needsServerSync = true;
 
@@ -169,7 +170,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 						showLoadingToast("캘린더 데이터를 로딩 중입니다...");
 					}
 
-					fetch("https://script.google.com/macros/s/AKfycbwHeRs4tqgNwsBIR4AVIKIAMuTTjAl6Ez4unnqWv94wfZxtbwSq-WO05w6guaiCbALelA/exec")
+					fetch(GAS_URL)
 						.then(res => res.json())
 						.then(data => {
 							let eventsArray = [];
@@ -509,7 +510,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 					reason: reason
 				};
 
-				return fetch("https://script.google.com/macros/s/AKfycbwHeRs4tqgNwsBIR4AVIKIAMuTTjAl6Ez4unnqWv94wfZxtbwSq-WO05w6guaiCbALelA/exec", {
+				return fetch(GAS_URL, {
 					method: "POST",
 					headers: { "Content-Type": "text/plain;charset=utf-8" },
 					body: JSON.stringify(payload)
@@ -609,7 +610,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 			window.pendingSuccessMessage = "참석 체크가 해제되었습니다.";
 			showLoadingToast("참석 체크를 해제하는 중입니다...");
 
-			fetch("https://script.google.com/macros/s/AKfycbwHeRs4tqgNwsBIR4AVIKIAMuTTjAl6Ez4unnqWv94wfZxtbwSq-WO05w6guaiCbALelA/exec", {
+			fetch(GAS_URL, {
 				method: "POST",
 				headers: { "Content-Type": "text/plain;charset=utf-8" },
 				body: JSON.stringify(payload)
@@ -680,14 +681,16 @@ window.onload = function () {
 		}
 		
 		if (typeof generateDinoAvatar === "function") {
-			generateDinoAvatar(bodyColor, bgColor, function(avatarUrl) {
-				localStorage.setItem("dinerUserProfileImage", avatarUrl);
-				document.getElementById("profile-img").src = avatarUrl;
-			});
+            const lineColor = localStorage.getItem("dinoLineColor") || "black";
+            generateDinoAvatar(bodyColor, bgColor, lineColor, function(avatarUrl) {
+                localStorage.setItem("dinerUserProfileImage", avatarUrl);
+                document.getElementById("profile-img").src = avatarUrl;
+            });
 		}
 
-		document.getElementById("login-btn-area").classList.add("hidden");
-		document.getElementById("user-info").classList.remove("hidden");
+		// document.getElementById("login-btn-area").classList.add("hidden");
+		// document.getElementById("user-info").classList.remove("hidden");
+        showLoggedInArea();
 	}
 
 	const nicknameModalEl = document.getElementById('nicknameModal');
@@ -760,7 +763,7 @@ window.onload = function () {
 				const userInfo = JSON.parse(savedUserStr);
 				
 				showLoadingToast("프로필을 저장하는 중입니다...");
-				fetch("https://script.google.com/macros/s/AKfycbwHeRs4tqgNwsBIR4AVIKIAMuTTjAl6Ez4unnqWv94wfZxtbwSq-WO05w6guaiCbALelA/exec", {
+				fetch(GAS_URL, {
 					method: "POST",
 					headers: { "Content-Type": "text/plain;charset=utf-8" },
 					body: JSON.stringify({
@@ -787,21 +790,20 @@ window.onload = function () {
 										usersCache = JSON.parse(cached);
 									} catch(e) {}
 								}
-								const userIdx = usersCache.findIndex(u => u.Email === userInfo.email);
-								if (userIdx !== -1) {
-									usersCache[userIdx].Nickname = newNickname;
-									usersCache[userIdx].DinoBodyColor = bodyColor;
-									usersCache[userIdx].DinoBgColor = bgColor;
-									usersCache[userIdx].DinoLineColor = lineColor;
-								} else {
-                                    usersCache.push({
-                                        email: userInfo.email,
-                                        nickname: newNickname,
-                                        dinoBodyColor: bodyColor,
-                                        dinoBgColor: bgColor,
-                                        dinoLineColor: lineColor
-                                    });
-								}
+                                const userIdx = usersCache.findIndex(u => getUserEmail(u) === userInfo.email);
+
+                                const updatedUser = {
+                                    email: userInfo.email,
+                                    nickname: newNickname,
+                                    dinoBodyColor: bodyColor,
+                                    dinoBgColor: bgColor,
+                                    dinoLineColor: lineColor
+                                };
+                                if (userIdx !== -1) {
+                                    usersCache[userIdx] = { ...usersCache[userIdx], ...updatedUser };
+                                } else {
+                                    usersCache.push(updatedUser);
+                                }
 								localStorage.setItem("dinerUsersCache", JSON.stringify(usersCache));
 								
 								hideLoadingToast("프로필 저장 완료!");
@@ -826,159 +828,335 @@ window.onload = function () {
 		});
 	}
 
-	google.accounts.id.initialize({
-		client_id: "143675790537-5f95f3pftgbtk5c72higjtq4bsimukfc.apps.googleusercontent.com", // 하드코딩된 client_id
-		callback: handleCredentialResponse
-	});
+    google.accounts.id.initialize({
+        client_id: "143675790537-5f95f3pftgbtk5c72higjtq4bsimukfc.apps.googleusercontent.com",
+        callback: handleCredentialResponse,
+        auto_select: false,
+        cancel_on_tap_outside: true
+    });
 
-	document.getElementById("login-btn").addEventListener("click", function () {
-		const sidebar = document.getElementById("sidebar");
-		const sidebarOverlay = document.getElementById("sidebar-overlay");
-		if (sidebar && sidebarOverlay) {
-			sidebar.classList.remove("active");
-			sidebarOverlay.classList.remove("active");
-		}
-		google.accounts.id.prompt();
-	});
+    const googleSignInButtonEl = document.getElementById("googleSignInButton");
+
+    if (googleSignInButtonEl && window.google && google.accounts && google.accounts.id) {
+        google.accounts.id.renderButton(
+            googleSignInButtonEl,
+            {
+                type: "standard",
+                theme: "outline",
+                size: "large",
+                text: "signin_with",
+                shape: "pill",
+                logo_alignment: "left"
+            }
+        );
+    }
+
+	// document.getElementById("login-btn").addEventListener("click", function () {
+	// 	const sidebar = document.getElementById("sidebar");
+	// 	const sidebarOverlay = document.getElementById("sidebar-overlay");
+	// 	if (sidebar && sidebarOverlay) {
+	// 		sidebar.classList.remove("active");
+	// 		sidebarOverlay.classList.remove("active");
+	// 	}
+	// 	google.accounts.id.prompt();
+	// });
+
 
 	const logoutBtn = document.getElementById("logout-btn");
-	if (logoutBtn) {
-		logoutBtn.addEventListener("click", function () {
-			localStorage.removeItem("dinerUserInfo");
-			location.reload();
-		});
-	}
+    logoutBtn.addEventListener("click", function () {
+        if (window.google && google.accounts && google.accounts.id) {
+            google.accounts.id.disableAutoSelect();
+        }
+
+        localStorage.removeItem("dinerUserInfo");
+        // localStorage.removeItem("dinerUserNickname");
+        // localStorage.removeItem("dinerUserProfileImage");
+        // localStorage.removeItem("dinoBodyColor");
+        // localStorage.removeItem("dinoBgColor");
+        // localStorage.removeItem("dinoLineColor");
+
+        // localStorage.removeItem("dinerUsersCache");
+        // localStorage.removeItem("dinerEventsCache");
+        // localStorage.removeItem("dinerSchedulesCache");
+
+        showLoggedOutArea();
+        closeSidebar();
+
+        showToast("로그아웃되었습니다.", "info", 1500);
+    });
 };
 
 function handleCredentialResponse(response) {
-	const idToken = response.credential;
+    console.log("GSI credential response:", response);
 
-	updateUserProfile(idToken);
+    if (!response || !response.credential) {
+        console.error("Google credential이 없습니다.", response);
+        showToast("로그인 정보를 받지 못했습니다.", "danger");
+        return;
+    }
 
-	fetch("https://script.google.com/macros/s/AKfycbwHeRs4tqgNwsBIR4AVIKIAMuTTjAl6Ez4unnqWv94wfZxtbwSq-WO05w6guaiCbALelA/exec", {
-		method: "POST",
-		headers: { "Content-Type": "text/plain;charset=utf-8" },
-		body: JSON.stringify({ action: "login", idToken: idToken })
-	})
-		.then(res => res.json())
-		.then(data => {
-			if (data.client_secret) {
-				console.log("GAS Login Check Success. Client Secret:", data.client_secret);
-			} else {
-				console.error("GAS Login Failed:", data.error);
-			}
-		})
-		.catch(error => console.error("GAS Fetch Error:", error));
+    updateUserProfile(response.credential);
 }
 
-function updateUserProfile(idToken) {
-	const url = `https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`;
+function getUserEmail(u) {
+    return u.email || u.Email;
+}
 
-	fetch(url)
-		.then(res => res.json())
-		.then(userInfo => {
-			localStorage.setItem("dinerUserInfo", JSON.stringify(userInfo));
+function getUserNickname(u) {
+    return u.nickname || u.Nickname;
+}
 
-			let usersCache = [];
-			const cached = localStorage.getItem("dinerUsersCache");
-			if (cached) {
-				try {
-					usersCache = JSON.parse(cached);
-				} catch (e) {}
-			}
+function getUserBodyColor(u) {
+    return u.dinoBodyColor || u.DinoBodyColor;
+}
 
-			const dbUser = usersCache.find(u => u.Email === userInfo.email);
+function getUserBgColor(u) {
+    return u.dinoBgColor || u.DinoBgColor;
+}
 
-			if (dbUser) {
-				localStorage.setItem("dinerUserNickname", dbUser.Nickname);
-				localStorage.setItem("dinoBodyColor", dbUser.DinoBodyColor);
-				localStorage.setItem("dinoBgColor", dbUser.DinoBgColor);
-				localStorage.setItem("dinoLineColor", dbUser.DinoLineColor || "black");
+function getUserLineColor(u) {
+    return u.dinoLineColor || u.DinoLineColor || "black";
+}
 
-				document.getElementById("user-name").textContent = dbUser.Nickname;
-				document.getElementById("user-nickname").innerHTML = dbUser.Nickname + ' <span class="material-symbols-outlined" style="font-size: 12px; vertical-align: middle;">edit</span>';
+function findUserByEmail(users, email) {
+    return (users || []).find(u => getUserEmail(u) === email);
+}
 
-				if (typeof generateDinoAvatar === "function") {
-					generateDinoAvatar(dbUser.DinoBodyColor, dbUser.DinoBgColor, dbUser.DinoLineColor || "black", function(avatarUrl) {
-						localStorage.setItem("dinerUserProfileImage", avatarUrl);
-						document.getElementById("profile-img").src = avatarUrl;
-					});
-				}
-			} else {
-				const newNickname = userInfo.name;
-				const bodyColor = "#D0D0D0";
-				const bgColor = "#EAEAEA";
-				const lineColor = "black";
+async function fetchUsersFromServer() {
+    const res = await fetch(GAS_URL);
+    const data = await res.json();
 
-				localStorage.setItem("dinerUserNickname", newNickname);
-				localStorage.setItem("dinoBodyColor", bodyColor);
-				localStorage.setItem("dinoBgColor", bgColor);
-				localStorage.setItem("dinoLineColor", lineColor);
+    if (data.users) {
+        localStorage.setItem("dinerUsersCache", JSON.stringify(data.users));
+    }
 
-				document.getElementById("user-name").textContent = newNickname;
-				document.getElementById("user-nickname").innerHTML = newNickname + ' <span class="material-symbols-outlined" style="font-size: 12px; vertical-align: middle;">edit</span>';
+    if (data.events) {
+        localStorage.setItem("dinerEventsCache", JSON.stringify(data.events));
+    }
 
-				if (typeof generateDinoAvatar === "function") {
-					generateDinoAvatar(bodyColor, bgColor, lineColor, function(avatarUrl) {
-						localStorage.setItem("dinerUserProfileImage", avatarUrl);
-						document.getElementById("profile-img").src = avatarUrl;
-					});
-				}
+    if (data.schedules) {
+        localStorage.setItem("dinerSchedulesCache", JSON.stringify(data.schedules));
+    }
 
-				fetch("https://script.google.com/macros/s/AKfycbwHeRs4tqgNwsBIR4AVIKIAMuTTjAl6Ez4unnqWv94wfZxtbwSq-WO05w6guaiCbALelA/exec", {
-					method: "POST",
-					headers: { "Content-Type": "text/plain;charset=utf-8" },
-					body: JSON.stringify({
-						action: "saveUser",
-						email: userInfo.email,
-						nickname: newNickname,
-						dinoBodyColor: bodyColor,
-						dinoBgColor: bgColor,
-						dinoLineColor: lineColor
-					})
-				})
-				.then(res => res.json())
-				.then(data => {
-					if (data.success) {
-						let usersCache = [];
-						const cached = localStorage.getItem("dinerUsersCache");
-						if (cached) {
-							try { usersCache = JSON.parse(cached); } catch(e) {}
-						}
-						const userIdx = usersCache.findIndex(u => u.Email === userInfo.email);
-						const newUserData = {
-							Email: userInfo.email,
-							Nickname: newNickname,
-							DinoBodyColor: bodyColor,
-							DinoBgColor: bgColor,
-							DinoLineColor: lineColor
-						};
-						if (userIdx !== -1) {
-							usersCache[userIdx] = newUserData;
-						} else {
-							usersCache.push(newUserData);
-						}
-						localStorage.setItem("dinerUsersCache", JSON.stringify(usersCache));
-						if (window.appCalendar) {
-							window.appCalendar.refetchEvents();
-						}
-					}
-				})
-				.catch(err => console.error("GAS auto register fail:", err));
+    return data.users || [];
+}
 
-				setTimeout(() => {
-					const nicknameModalEl = document.getElementById('nicknameModal');
-					if (nicknameModalEl) {
-						const modal = bootstrap.Modal.getInstance(nicknameModalEl) || bootstrap.Modal.getOrCreateInstance(nicknameModalEl);
-						if (modal) modal.show();
-					}
-				}, 500);
-			}
+function closeSidebar() {
+    const sidebar = document.getElementById("sidebar");
+    const sidebarOverlay = document.getElementById("sidebar-overlay");
 
-			document.getElementById("login-btn-area").classList.add("hidden");
-			document.getElementById("user-info").classList.remove("hidden");
-		})
-		.catch(error => console.error("Failed to fetch user info:", error));
+    if (sidebar && sidebarOverlay) {
+        sidebar.classList.remove("active");
+        sidebarOverlay.classList.remove("active");
+    }
+}
+
+function showLoggedInArea() {
+    const loginArea = document.getElementById("login-btn-area");
+    const userInfoArea = document.getElementById("user-info");
+
+    if (loginArea) {
+        loginArea.classList.add("hidden");
+        loginArea.style.display = "none";
+    }
+
+    if (userInfoArea) {
+        userInfoArea.classList.remove("hidden");
+        userInfoArea.style.display = "flex";
+    }
+}
+
+function showLoggedOutArea() {
+    const loginArea = document.getElementById("login-btn-area");
+    const userInfoArea = document.getElementById("user-info");
+
+    if (loginArea) {
+        loginArea.classList.remove("hidden");
+        loginArea.style.display = "";
+    }
+
+    if (userInfoArea) {
+        userInfoArea.classList.add("hidden");
+        userInfoArea.style.display = "none";
+    }
+}
+
+function applyTemporaryGoogleProfile(userInfo) {
+    const fallbackName = userInfo.name || userInfo.email || "사용자";
+    const nickname = localStorage.getItem("dinerUserNickname") || fallbackName;
+    const bodyColor = localStorage.getItem("dinoBodyColor") || "#D0D0D0";
+    const bgColor = localStorage.getItem("dinoBgColor") || "#EAEAEA";
+    const lineColor = localStorage.getItem("dinoLineColor") || "black";
+
+    localStorage.setItem("dinerUserNickname", nickname);
+    localStorage.setItem("dinoBodyColor", bodyColor);
+    localStorage.setItem("dinoBgColor", bgColor);
+    localStorage.setItem("dinoLineColor", lineColor);
+
+    const nameEl = document.getElementById("user-name");
+    const nicknameEl = document.getElementById("user-nickname");
+
+    if (nameEl) nameEl.textContent = nickname;
+    if (nicknameEl) {
+        nicknameEl.innerHTML =
+            nickname + ' <span class="material-symbols-outlined" style="font-size: 12px; vertical-align: middle;">edit</span>';
+    }
+
+    if (typeof generateDinoAvatar === "function") {
+        generateDinoAvatar(bodyColor, bgColor, lineColor, function(avatarUrl) {
+            localStorage.setItem("dinerUserProfileImage", avatarUrl);
+
+            const profileImgEl = document.getElementById("profile-img");
+            if (profileImgEl) {
+                profileImgEl.src = avatarUrl;
+            }
+        });
+    }
+}
+
+async function updateUserProfile(idToken) {
+    try {
+        const tokenInfoRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`);
+        const userInfo = await tokenInfoRes.json();
+
+        if (!userInfo || !userInfo.email) {
+            console.error("Invalid tokeninfo response:", userInfo);
+            showToast("로그인 정보를 확인하지 못했습니다.", "danger");
+            return;
+        }
+
+        localStorage.setItem("dinerUserInfo", JSON.stringify(userInfo));
+
+        // 여기서 먼저 로그인 UI로 전환
+        applyTemporaryGoogleProfile(userInfo);
+        showLoggedInArea();
+        closeSidebar();
+
+        let usersCache = [];
+
+        try {
+            usersCache = await fetchUsersFromServer();
+        } catch (e) {
+            console.warn("서버 users 동기화 실패. localStorage cache로 대체합니다.", e);
+            try {
+                usersCache = JSON.parse(localStorage.getItem("dinerUsersCache") || "[]");
+            } catch (_) {
+                usersCache = [];
+            }
+        }
+
+        const dbUser = findUserByEmail(usersCache, userInfo.email);
+
+        if (dbUser) {
+            // 서버에 기존 유저가 있으면 실제 프로필로 보정
+            applyUserProfileToLocal(userInfo, dbUser);
+        } else {
+            // 서버에 없을 때만 신규 프로필 생성 + 모달
+            createNewUserProfile(userInfo);
+        }
+
+    } catch (error) {
+        console.error("Failed to fetch user info:", error);
+        showToast("로그인 정보를 불러오지 못했습니다.", "danger");
+    }
+}
+
+function applyUserProfileToLocal(userInfo, dbUser) {
+    const nickname = getUserNickname(dbUser);
+    const bodyColor = getUserBodyColor(dbUser) || "#A3D9C9";
+    const bgColor = getUserBgColor(dbUser) || "#FAF8F5";
+    const lineColor = getUserLineColor(dbUser);
+
+    localStorage.setItem("dinerUserNickname", nickname);
+    localStorage.setItem("dinoBodyColor", bodyColor);
+    localStorage.setItem("dinoBgColor", bgColor);
+    localStorage.setItem("dinoLineColor", lineColor);
+
+    document.getElementById("user-name").textContent = nickname;
+    document.getElementById("user-nickname").innerHTML =
+        nickname + ' <span class="material-symbols-outlined" style="font-size: 12px; vertical-align: middle;">edit</span>';
+
+    if (typeof generateDinoAvatar === "function") {
+        generateDinoAvatar(bodyColor, bgColor, lineColor, function(avatarUrl) {
+            localStorage.setItem("dinerUserProfileImage", avatarUrl);
+
+            const profileImgEl = document.getElementById("profile-img");
+            if (profileImgEl) {
+                profileImgEl.src = avatarUrl;
+            }
+        });
+    }
+}
+
+function createNewUserProfile(userInfo) {
+    const newNickname = userInfo.name;
+    const bodyColor = "#D0D0D0";
+    const bgColor = "#EAEAEA";
+    const lineColor = "black";
+
+    localStorage.setItem("dinerUserNickname", newNickname);
+    localStorage.setItem("dinoBodyColor", bodyColor);
+    localStorage.setItem("dinoBgColor", bgColor);
+    localStorage.setItem("dinoLineColor", lineColor);
+
+    document.getElementById("user-name").textContent = newNickname;
+    document.getElementById("user-nickname").innerHTML =
+        newNickname + ' <span class="material-symbols-outlined" style="font-size: 12px; vertical-align: middle;">edit</span>';
+
+    if (typeof generateDinoAvatar === "function") {
+        generateDinoAvatar(bodyColor, bgColor, lineColor, function(avatarUrl) {
+            localStorage.setItem("dinerUserProfileImage", avatarUrl);
+            document.getElementById("profile-img").src = avatarUrl;
+        });
+    }
+
+    fetch(GAS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+            action: "saveUser",
+            email: userInfo.email,
+            nickname: newNickname,
+            dinoBodyColor: bodyColor,
+            dinoBgColor: bgColor,
+            dinoLineColor: lineColor
+        })
+    })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                let usersCache = [];
+                try {
+                    usersCache = JSON.parse(localStorage.getItem("dinerUsersCache") || "[]");
+                } catch(e) {}
+
+                const userIdx = usersCache.findIndex(u => getUserEmail(u) === userInfo.email);
+                const newUserData = {
+                    email: userInfo.email,
+                    nickname: newNickname,
+                    dinoBodyColor: bodyColor,
+                    dinoBgColor: bgColor,
+                    dinoLineColor: lineColor
+                };
+
+                if (userIdx !== -1) {
+                    usersCache[userIdx] = newUserData;
+                } else {
+                    usersCache.push(newUserData);
+                }
+
+                localStorage.setItem("dinerUsersCache", JSON.stringify(usersCache));
+            }
+        })
+        .catch(err => console.error("GAS auto register fail:", err));
+
+    setTimeout(() => {
+        const nicknameModalEl = document.getElementById("nicknameModal");
+        if (nicknameModalEl) {
+            const modal = bootstrap.Modal.getInstance(nicknameModalEl) || bootstrap.Modal.getOrCreateInstance(nicknameModalEl);
+            if (modal) modal.show();
+        }
+    }, 500);
 }
 
 let loadingToastInstance = null;
@@ -1200,9 +1378,10 @@ function updateDailyEventsList(clickedDateStr) {
 					}
 				}
 
-				const cacheKey = `${bodyColor}_${bgColor}_${isWhiteLine}`;
-				let profileImage = window.dinoAvatarCache[cacheKey] || "resource/image/default-profile.png";
-				const memo = event.extendedProps.reason || "메모 없음";
+                const cacheKey = `${bodyColor}_${bgColor}_${isWhiteLine}`;
+                let profileImage = window.dinoAvatarCache[cacheKey] || "resource/image/default-profile.png";
+                const eventOwner = (user && user.nickname) || event.extendedProps.nickname || event.extendedProps.name || event.title || "이름 없음";
+                const memo = event.extendedProps.reason || "";
 
 				const itemHtml = `
 					<div class="d-flex align-items-center gap-3 p-2 rounded-3 bg-light">
@@ -1430,7 +1609,7 @@ function initSchedulePage() {
 				type: "manual"
 			};
 
-			fetch("https://script.google.com/macros/s/AKfycbwHeRs4tqgNwsBIR4AVIKIAMuTTjAl6Ez4unnqWv94wfZxtbwSq-WO05w6guaiCbALelA/exec", {
+			fetch(GAS_URL, {
 				method: "POST",
 				headers: { "Content-Type": "text/plain;charset=utf-8" },
 				body: JSON.stringify(payload)
@@ -1491,7 +1670,7 @@ function initSchedulePage() {
 				participants: participantsVal
 			};
 
-			fetch("https://script.google.com/macros/s/AKfycbwHeRs4tqgNwsBIR4AVIKIAMuTTjAl6Ez4unnqWv94wfZxtbwSq-WO05w6guaiCbALelA/exec", {
+			fetch(GAS_URL, {
 				method: "POST",
 				headers: { "Content-Type": "text/plain;charset=utf-8" },
 				body: JSON.stringify(payload)
@@ -1536,7 +1715,7 @@ function fetchSchedulesAndEventsFromServer(start, end) {
 		`;
 	}
 
-	fetch("https://script.google.com/macros/s/AKfycbwHeRs4tqgNwsBIR4AVIKIAMuTTjAl6Ez4unnqWv94wfZxtbwSq-WO05w6guaiCbALelA/exec")
+	fetch(GAS_URL)
 		.then(res => res.json())
 		.then(data => {
 			hideLoadingToast();
