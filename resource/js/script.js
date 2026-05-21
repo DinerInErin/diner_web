@@ -1,7 +1,7 @@
 let CLIENT_ID;
 let CLIENT_KEY;
-window.isFirstLoad = true; // 최초 진입 시 로딩 상태 관리를 위한 전역 변수
-window.needsServerSync = true; // 서버 동기화가 필요한지 여부 플래그
+window.isFirstLoad = true;
+window.needsServerSync = true;
 
 document.addEventListener("DOMContentLoaded", async function () {
 
@@ -90,18 +90,20 @@ document.addEventListener("DOMContentLoaded", async function () {
 				headerToolbar: false,
 				height: "auto",
 				dayMaxEvents: 5,
+				moreLinkClick: function(info) {
+					info.jsEvent.stopPropagation();
+					info.jsEvent.stopImmediatePropagation();
+				},
 				dayHeaderFormat: {
 					weekday: 'short'
 				},
 				datesSet: function (dateInfo) {
-					// 뷰가 변경되거나 날짜 범위가 설정될 때마다 상단 타이틀 갱신
 					const titleEl = document.getElementById("calendarTitle");
 					if (titleEl && window.appCalendar) {
 						titleEl.textContent = window.appCalendar.view.title;
 					}
 				},
 				events: function (info, successCallback, failureCallback) {
-					// 1. 로컬 캐시를 읽어와 즉시 렌더링 (체감 속도 0ms!)
 					const cachedDataStr = localStorage.getItem("dinerEventsCache");
 					const hasCache = !!cachedDataStr;
 
@@ -129,20 +131,16 @@ document.addEventListener("DOMContentLoaded", async function () {
 						}
 					}
 
-					// 1.5. 진행 중인 모든 변경사항(activeMutationsCount > 0)이 완전히 처리될 때까지 백그라운드 서버 패치를 차단하여 레이스 컨디션을 예방합니다.
 					if ((window.activeMutationsCount || 0) > 0) {
 						return;
 					}
 
-					// 서버 동기화가 불필요한 경우 네트워크 조회를 생략합니다.
 					if (!window.needsServerSync) {
 						return;
 					}
 
-					// 서버 호출 직전에 플래그를 꺼서 무한 루프를 방지합니다.
 					window.needsServerSync = false;
 
-					// 최초 진입 시(isFirstLoad = true)에는 사용자에게 동기화 진행 상황을 정밀하게 알려줍니다.
 					if (window.isFirstLoad) {
 						showLoadingToast("캘린더 최신 정보를 동기화하는 중입니다...");
 					} else if (!hasCache) {
@@ -224,7 +222,6 @@ document.addEventListener("DOMContentLoaded", async function () {
 						})
 						.catch(err => {
 							console.error("Failed to load events", err);
-							// 실패 시 다음 기회에 재시도할 수 있도록 동기화 플래그 복구
 							window.needsServerSync = true;
 							if (window.isFirstLoad) {
 								window.isFirstLoad = false;
@@ -301,21 +298,18 @@ document.addEventListener("DOMContentLoaded", async function () {
 							trigger: 'hover focus'
 						});
 
-						// 모바일 롱프레스(꾹 누르기)로 툴팁 감지
 						let pressTimer;
 						tooltipEl.addEventListener('touchstart', function (e) {
 							pressTimer = setTimeout(function () {
 								window.isLongPressActive = true;
 								tooltip.show();
-								// 2.5초 뒤 자동으로 툴팁 닫기
 								setTimeout(() => { tooltip.hide(); }, 2500);
-							}, 600); // 0.6초 꾹 누르기
+							}, 600);
 						}, { passive: true });
 
 						tooltipEl.addEventListener('touchend', function (e) {
 							clearTimeout(pressTimer);
 							if (window.isLongPressActive) {
-								// 롱프레스가 끝난 후 잠깐 딜레이를 주어 일반 클릭 이벤트(토글) 방지
 								setTimeout(() => {
 									window.isLongPressActive = false;
 								}, 300);
@@ -343,7 +337,6 @@ document.addEventListener("DOMContentLoaded", async function () {
 			});
 			window.appCalendar.render();
 
-			// 커스텀 헤더 버튼 이벤트 바인딩
 			const prevBtn = document.getElementById("prevMonthBtn");
 			const nextBtn = document.getElementById("nextMonthBtn");
 			if (prevBtn) {
@@ -359,7 +352,6 @@ document.addEventListener("DOMContentLoaded", async function () {
 		}
 	});
 
-	// `#app` 내부 변화를 감지 (동적 HTML 변경 감지)
 	observer.observe(document.getElementById("app"), { childList: true, subtree: true });
 
 	const saveBtn = document.getElementById("saveEvent");
@@ -373,7 +365,6 @@ document.addEventListener("DOMContentLoaded", async function () {
 				return;
 			}
 
-			// 동작 피드백을 위해 모달을 즉시 닫습니다.
 			const modalEl = document.getElementById("eventModal");
 			const modal = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
 			if (modal) modal.hide();
@@ -382,19 +373,16 @@ document.addEventListener("DOMContentLoaded", async function () {
 			const savedNickname = localStorage.getItem("dinerUserNickname");
 			const savedProfileImage = localStorage.getItem("dinerUserProfileImage");
 
-			// 일괄 저장할 날짜 목록 결정
 			let datesToSave = [];
 			if (window.dragSelectedDates && window.dragSelectedDates.length > 0) {
 				datesToSave = window.dragSelectedDates;
-				window.dragSelectedDates = null; // 사용 후 리셋
+				window.dragSelectedDates = null;
 			} else {
 				datesToSave = [document.getElementById("selectedDate").value];
 			}
 
-			// 서버 갱신 중 카운터 증가 (캘린더 백그라운드 패치를 일시 차단)
 			window.activeMutationsCount = (window.activeMutationsCount || 0) + 1;
 
-			// Optimistic Update: 로컬 캐시에 저장 체크 즉시 반영
 			const cachedDataStr = localStorage.getItem("dinerEventsCache");
 			if (cachedDataStr) {
 				try {
@@ -418,7 +406,6 @@ document.addEventListener("DOMContentLoaded", async function () {
 				}
 			}
 
-			// 즉각 달력에 캐시 반영하여 0ms 무소음 렌더링 지원!
 			if (window.appCalendar) {
 				window.appCalendar.refetchEvents();
 			}
@@ -428,7 +415,6 @@ document.addEventListener("DOMContentLoaded", async function () {
 				: "참석 체크가 완료되었습니다!";
 			showLoadingToast("참석 정보를 저장 중입니다...");
 
-			// Promise.all을 활용해 모든 날짜에 대해 fetch 실행
 			const savePromises = datesToSave.map(dateStr => {
 				const payload = {
 					action: "save",
@@ -449,11 +435,9 @@ document.addEventListener("DOMContentLoaded", async function () {
 
 			Promise.all(savePromises)
 				.then(results => {
-					// 활성 변경 작업 개수 감소
 					window.activeMutationsCount = Math.max(0, (window.activeMutationsCount || 1) - 1);
 					const allSuccess = results.every(res => res.success);
 
-					// 모든 연속적 변경이 완벽히 완료된 최후에만 단 한 번 최종 동기화 리로드 진행!
 					if (window.activeMutationsCount === 0) {
 						if (allSuccess) {
 							document.getElementById("reasonInput").value = "";
@@ -466,7 +450,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 										window.needsServerSync = true;
 										window.appCalendar.refetchEvents();
 									}
-								}, 500); // 500ms의 안정적인 플러시 마진 추가
+								}, 500);
 							}
 						} else {
 							window.pendingSuccessMessage = null;
@@ -507,17 +491,14 @@ document.addEventListener("DOMContentLoaded", async function () {
 				return;
 			}
 
-			// 동작 피드백을 위해 모달을 즉시 닫습니다.
 			const modalEl = document.getElementById("deleteEventModal");
 			const modal = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
 			if (modal) modal.hide();
 
 			const userInfo = JSON.parse(savedUserStr);
 
-			// 서버 갱신 중 카운터 증가 (캘린더 백그라운드 패치를 일시 차단)
 			window.activeMutationsCount = (window.activeMutationsCount || 0) + 1;
 
-			// Optimistic Update: 로컬 캐시에서 즉각 제거
 			const cachedDataStr = localStorage.getItem("dinerEventsCache");
 			if (cachedDataStr) {
 				try {
@@ -532,7 +513,6 @@ document.addEventListener("DOMContentLoaded", async function () {
 				}
 			}
 
-			// 즉각 달력에 반영하여 0ms 무소음 렌더링 지원!
 			if (window.appCalendar) {
 				window.appCalendar.refetchEvents();
 			}
@@ -553,10 +533,8 @@ document.addEventListener("DOMContentLoaded", async function () {
 			})
 				.then(res => res.json())
 				.then(data => {
-					// 활성 변경 작업 개수 감소
 					window.activeMutationsCount = Math.max(0, (window.activeMutationsCount || 1) - 1);
-					
-					// 모든 연속적 변경이 완벽히 완료된 최후에만 단 한 번 최종 동기화 리로드 진행!
+
 					if (window.activeMutationsCount === 0) {
 						if (data.success) {
 							const successMsg = window.pendingSuccessMessage || "참석 체크가 해제되었습니다.";
@@ -568,7 +546,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 										window.needsServerSync = true;
 										window.appCalendar.refetchEvents();
 									}
-								}, 500); // 500ms의 안정적인 플러시 마진 추가
+								}, 500);
 							}
 						} else {
 							window.pendingSuccessMessage = null;
@@ -629,7 +607,6 @@ window.onload = function () {
 		document.getElementById("user-info").classList.remove("hidden");
 	}
 
-	// 닉네임 모달 이벤트
 	const nicknameModalEl = document.getElementById('nicknameModal');
 	if (nicknameModalEl) {
 		nicknameModalEl.addEventListener('show.bs.modal', function () {
@@ -771,9 +748,7 @@ window.onload = function () {
 		callback: handleCredentialResponse
 	});
 
-	// 커스텀 버튼 클릭 시 구글 One Tap 팝업 호출
 	document.getElementById("login-btn").addEventListener("click", function () {
-		// 모바일 환경에서 바닥에서 올라오는 구글 로그인 창이 사이드바에 가려지는 것을 방지하기 위해 사이드바를 먼저 닫아줍니다.
 		const sidebar = document.getElementById("sidebar");
 		const sidebarOverlay = document.getElementById("sidebar-overlay");
 		if (sidebar && sidebarOverlay) {
@@ -795,7 +770,6 @@ window.onload = function () {
 function handleCredentialResponse(response) {
 	const idToken = response.credential;
 
-	// GAS 응답과 무관하게 먼저 UI 업데이트 및 로컬 스토리지 저장을 진행합니다.
 	updateUserProfile(idToken);
 
 	fetch("https://script.google.com/macros/s/AKfycbwHeRs4tqgNwsBIR4AVIKIAMuTTjAl6Ez4unnqWv94wfZxtbwSq-WO05w6guaiCbALelA/exec", {
@@ -924,7 +898,6 @@ function updateUserProfile(idToken) {
 		.catch(error => console.error("Failed to fetch user info:", error));
 }
 
-// Bootstrap Toast helper functions
 let loadingToastInstance = null;
 
 function handleDateRangeSelect(startStr, endStr) {
@@ -1025,21 +998,21 @@ function updateDailyEventsList(clickedDateStr) {
 
 	const allEvents = window.appCalendar.getEvents();
 	const dailyEvents = allEvents.filter(event => event.startStr.split('T')[0] === clickedDateStr);
-
-	const parts = clickedDateStr.split("-");
-	const formattedDate = `${parseInt(parts[1])}월 ${parseInt(parts[2])}일 참석 희망자 목록 (${dailyEvents.length}명)`;
-	
-	const titleEl = document.getElementById("selected-date-title");
-	if (titleEl) {
-		titleEl.textContent = formattedDate;
-	}
+    //
+	// const parts = clickedDateStr.split("-");
+	// const formattedDate = `${parseInt(parts[1])}월 ${parseInt(parts[2])}일 참석 희망자 목록 (${dailyEvents.length}명)`;
+	//
+	// const titleEl = document.getElementById("selected-date-title");
+	// if (titleEl) {
+	// 	titleEl.textContent = formattedDate;
+	// }
 
 	const listEl = document.getElementById("daily-events-list");
 	if (listEl) {
 		listEl.innerHTML = "";
-		if (dailyEvents.length === 0) {
-			listEl.innerHTML = `<div class="text-center text-muted py-3 fs-7">등록된 참석 희망자가 없습니다.</div>`;
-		} else {
+		// if (dailyEvents.length === 0) {
+		// 	listEl.innerHTML = `<div class="text-center text-muted py-3 fs-7">등록된 참석 희망자가 없습니다.</div>`;
+		// } else {
 			dailyEvents.forEach(event => {
 				const eventTitle = event.title || event.extendedProps.name;
 				const eventOrigName = event.extendedProps.originalName;
@@ -1084,7 +1057,7 @@ function updateDailyEventsList(clickedDateStr) {
 				`;
 				listEl.insertAdjacentHTML("beforeend", itemHtml);
 			});
-		}
+		// }
 	}
 
 	const myEvent = dailyEvents.find(event => {
@@ -1197,7 +1170,7 @@ function renderConfirmedDateBadges(events) {
 					const badge = document.createElement('img');
 					badge.className = 'confirmed-badge';
 					badge.src = 'resource/image/confirmed-badge.png';
-					badge.title = '5인 이상 참석 확정!';
+					badge.title = '확정';
 					cellTop.appendChild(badge);
 				}
 			}
@@ -1205,7 +1178,6 @@ function renderConfirmedDateBadges(events) {
 	}
 }
 
-// 이번주 목요일 ~ 다음주 수요일 계산 헬퍼
 function getCurrentCycleRange(refDate = new Date()) {
 	const day = refDate.getDay();
 	let start = new Date(refDate);
@@ -1225,7 +1197,6 @@ function getCurrentCycleRange(refDate = new Date()) {
 	return { start, end };
 }
 
-// 일정 관리 페이지(Schedule) 제어 로직
 function initSchedulePage() {
 	console.log("📅 Initializing Schedule Page...");
 
@@ -1251,7 +1222,6 @@ function initSchedulePage() {
 		dateInput.value = todayStr;
 	}
 
-	// 1. 로컬 캐시를 읽어와 즉시 일정과 참석자 선택기 렌더링
 	const cachedEventsStr = localStorage.getItem("dinerEventsCache");
 	if (cachedEventsStr) {
 		try {
@@ -1270,10 +1240,8 @@ function initSchedulePage() {
 		}
 	}
 
-	// 2. 서버 통신 동기화 실행
 	fetchSchedulesAndEventsFromServer(range.start, range.end);
 
-	// 3. 새 일정 수동 추가 리스너
 	const form = document.getElementById("new-schedule-form");
 	if (form) {
 		form.onsubmit = function (e) {
@@ -1291,7 +1259,7 @@ function initSchedulePage() {
 				return;
 			}
 
-			showLoadingToast("새 수동 일정을 등록하는 중입니다...");
+			showLoadingToast("새 일정을 등록하는 중입니다...");
 
 			const idVal = "manual_" + Date.now();
 			const userInfo = JSON.parse(savedUserStr);
@@ -1318,9 +1286,8 @@ function initSchedulePage() {
 					if (data.success) {
 						document.getElementById("sched-title").value = "";
 						document.querySelectorAll('.sched-user-checkbox').forEach(cb => cb.checked = false);
-						showToast("수동 일정이 등록되었습니다!", "success");
+						showToast("일정이 등록되었습니다!", "success");
 
-						// 동기화 재수행
 						fetchSchedulesAndEventsFromServer(range.start, range.end);
 					} else {
 						hideLoadingToast();
@@ -1335,7 +1302,6 @@ function initSchedulePage() {
 		};
 	}
 
-	// 4. 모달 내 일정 이름 변경 완료 리스너
 	const saveEditBtn = document.getElementById("saveEditScheduleBtn");
 	if (saveEditBtn) {
 		saveEditBtn.onclick = function () {
@@ -1427,7 +1393,7 @@ function fetchSchedulesAndEventsFromServer(start, end) {
 		.catch(err => {
 			console.error(err);
 			hideLoadingToast();
-			showToast("서버 일정 동기화에 실패했습니다.", "danger");
+			showToast("일정 동기화에 실패했습니다.", "danger");
 		});
 }
 
@@ -1474,7 +1440,7 @@ function renderSchedulesList(schedules, cycleStart, cycleEnd) {
 				<span class="material-symbols-outlined text-muted" style="font-size: 48px;">event_busy</span>
 				<div class="mt-2 fw-semibold">이번 주간에 등록된 일정이 없습니다.</div>
 				<div class="small text-muted mt-1">캘린더에서 5명 이상 참석 체크 시 자동으로 일정이 생성됩니다.</div>
-				<div class="small text-muted mt-1">또는 폼을 통해 수동으로 등록할 수도 있습니다.</div>
+				<div class="small text-muted mt-1">또는 수동으로 등록할 수도 있습니다.</div>
 			</div>
 		`;
 		return;
@@ -1540,7 +1506,6 @@ function renderSchedulesList(schedules, cycleStart, cycleEnd) {
 	window.activeScheduleTooltips = Array.from(tooltipTriggerList).map(el => new bootstrap.Tooltip(el));
 }
 
-// 캘린더 참석 데이터를 기반으로 고유한 실사용자 목록 추출 후 체크박스 선택기 동적 빌드
 function populateAttendeesSelector(events) {
 	const listEl = document.getElementById("sched-attendees-list");
 	if (!listEl) return;
@@ -1700,7 +1665,6 @@ window.generateDinoAvatar = function(bodyColor, bgColor, isWhiteLine, callback) 
 		tempCanvas.height = 120;
 		const tempCtx = tempCanvas.getContext("2d");
 
-		// 패딩을 주어 중앙에 84x84 크기로 렌더링 (상하좌우 18px 여백)
 		tempCtx.drawImage(maskImg, 18, 18, 84, 84);
 		tempCtx.globalCompositeOperation = "source-in";
 		tempCtx.fillStyle = bodyColor || "#A3D9C9";
@@ -1748,7 +1712,6 @@ window.drawDinoPreview = function(bodyColor, bgColor, isWhiteLine) {
 		tempCanvas.height = 80;
 		const tempCtx = tempCanvas.getContext("2d");
 
-		// 패딩을 주어 중앙에 56x56 크기로 렌더링 (상하좌우 12px 여백)
 		tempCtx.drawImage(maskImg, 12, 12, 56, 56);
 		tempCtx.globalCompositeOperation = "source-in";
 		tempCtx.fillStyle = bodyColor || "#A3D9C9";
