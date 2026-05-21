@@ -570,6 +570,7 @@ footer {
     width: 30px !important;
     height: 30px !important;
     align-self: center;
+    transform: translateX(-8%);
 }
 
 .fc-daygrid-day-events .fc-event-title-text {

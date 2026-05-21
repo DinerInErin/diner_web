@@ -145,17 +145,15 @@
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content shadow border-0 rounded-4">
         <div class="modal-header bg-dark text-white rounded-top-4">
-          <h5 class="modal-title fw-bold" id="eventModalLabel">
-            <span class="material-symbols-outlined align-middle me-1">event_available</span>
-            참석가능한 날짜로 체크 할까요?
+            <h5 class="modal-title fw-bold" id="eventModalTitle">참석 등록</h5>
           </h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body p-4">
           <input type="hidden" id="selectedDate">
           <div class="form-floating">
-            <input type="text" class="form-control" id="reasonInput" placeholder="메모가 필요하다면 입력하세요">
-            <label for="reasonInput" class="text-secondary">메모가 필요하다면 입력하세요</label>
+            <input type="text" class="form-control" id="reasonInput" placeholder="메모가 필요하다면 입력하세요.">
+            <label for="reasonInput" class="text-secondary">메모가 필요하다면 입력하세요.</label>
           </div>
         </div>
         <div class="modal-footer border-0 pb-4 pe-4">
@@ -171,15 +169,13 @@
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content shadow border-0 rounded-4">
         <div class="modal-header bg-danger text-white rounded-top-4">
-          <h5 class="modal-title fw-bold" id="deleteEventModalLabel">
-            <span class="material-symbols-outlined align-middle me-1">event_busy</span>
-            체크를 해제할까요?
+            <h5 class="modal-title fw-bold" id="deleteEventModalTitle">참석 취소</h5>
           </h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body p-4 text-center">
           <input type="hidden" id="deleteEventDate">
-          <p class="mb-0 fs-5">이 날짜의 참석 체크를 해제하시겠습니까?</p>
+          <p class="mb-0 fs-5">참석을 취소할까요?</p>
         </div>
         <div class="modal-footer border-0 pb-4 pe-4 justify-content-center">
           <button type="button" class="btn btn-light border rounded-pill px-4" data-bs-dismiss="modal">아니오</button>

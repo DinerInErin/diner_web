@@ -47,37 +47,48 @@ document.addEventListener("DOMContentLoaded", async function () {
 			let touchStartY = 0;
 			let touchStartTime = 0;
 
-			calendarEl.addEventListener("touchstart", function(e) {
-				const dayCell = e.target.closest(".fc-daygrid-day");
-				if (!dayCell) return;
-				if (e.target.closest(".fc-event")) return;
-				
-				const touch = e.touches[0];
-				touchStartX = touch.clientX;
-				touchStartY = touch.clientY;
-				touchStartTime = Date.now();
-			}, { passive: true });
 
-			calendarEl.addEventListener("touchend", function(e) {
-				const dayCell = e.target.closest(".fc-daygrid-day");
-				if (!dayCell) return;
-				if (e.target.closest(".fc-event")) return;
-				
-				const touch = e.changedTouches[0];
-				const diffX = Math.abs(touch.clientX - touchStartX);
-				const diffY = Math.abs(touch.clientY - touchStartY);
-				const diffTime = Date.now() - touchStartTime;
-				
-				if (diffX < 10 && diffY < 10 && diffTime < 250) {
-					const dateStr = dayCell.getAttribute("data-date");
-					if (dateStr) {
-						e.preventDefault();
-						if (typeof handleDateRangeSelect === "function") {
-							handleDateRangeSelect(dateStr, dateStr);
-						}
-					}
-				}
-			}, { passive: false });
+            const MORE_LINK_SELECTOR = ".fc-more-link, .fc-daygrid-more-link";
+
+            function isMoreLinkTarget(target) {
+                return target && target.closest && target.closest(MORE_LINK_SELECTOR);
+            }
+
+            calendarEl.addEventListener("touchstart", function(e) {
+                const dayCell = e.target.closest(".fc-daygrid-day");
+                if (!dayCell) return;
+
+                if (isMoreLinkTarget(e.target)) return;
+
+                if (e.target.closest(".fc-event")) return;
+
+                const touch = e.touches[0];
+                touchStartX = touch.clientX;
+                touchStartY = touch.clientY;
+                touchStartTime = Date.now();
+            }, { passive: true });
+
+            calendarEl.addEventListener("touchend", function(e) {
+                const dayCell = e.target.closest(".fc-daygrid-day");
+                if (!dayCell) return;
+
+                if (window.moreLinkTouched || isMoreLinkTarget(e.target)) return;
+
+                if (e.target.closest(".fc-event")) return;
+
+                const touch = e.changedTouches[0];
+                const diffX = Math.abs(touch.clientX - touchStartX);
+                const diffY = Math.abs(touch.clientY - touchStartY);
+                const diffTime = Date.now() - touchStartTime;
+
+                if (diffX < 12 && diffY < 12 && diffTime < 500) {
+                    const dateStr = dayCell.getAttribute("data-date");
+                    if (dateStr) {
+                        e.preventDefault();
+                        handleDateRangeSelect(dateStr, dateStr);
+                    }
+                }
+            }, { passive: false });
 
 			window.appCalendar = new FullCalendar.Calendar(calendarEl, {
 				initialView: "dayGridMonth",
@@ -90,10 +101,21 @@ document.addEventListener("DOMContentLoaded", async function () {
 				headerToolbar: false,
 				height: "auto",
 				dayMaxEvents: 5,
-				moreLinkClick: function(info) {
-					info.jsEvent.stopPropagation();
-					info.jsEvent.stopImmediatePropagation();
-				},
+                moreLinkClick: function(info) {
+                    if (info.jsEvent) {
+                        info.jsEvent.stopPropagation();
+                        if (info.jsEvent.stopImmediatePropagation) {
+                            info.jsEvent.stopImmediatePropagation();
+                        }
+                    }
+
+                    window.moreLinkTouched = true;
+                    setTimeout(function() {
+                        window.moreLinkTouched = false;
+                    }, 500);
+
+                    return "popover";
+                },
 				dayHeaderFormat: {
 					weekday: 'short'
 				},
@@ -163,28 +185,35 @@ document.addEventListener("DOMContentLoaded", async function () {
 									if (savedUserStr) {
 										try {
 											const userInfo = JSON.parse(savedUserStr);
-											const dbUser = data.users.find(u => u.Email === userInfo.email);
-											if (dbUser) {
-												localStorage.setItem("dinerUserNickname", dbUser.Nickname);
-												localStorage.setItem("dinoBodyColor", dbUser.DinoBodyColor);
-												localStorage.setItem("dinoBgColor", dbUser.DinoBgColor);
-												localStorage.setItem("dinoLineColor", dbUser.DinoLineColor || "black");
+                                            const dbUser = data.users.find(u => u.email === userInfo.email);
 
-												const nameEl = document.getElementById("user-name");
-												const nicknameEl = document.getElementById("user-nickname");
-												if (nameEl) nameEl.textContent = dbUser.Nickname;
-												if (nicknameEl) {
-													nicknameEl.innerHTML = dbUser.Nickname + ' <span class="material-symbols-outlined" style="font-size: 12px; vertical-align: middle;">edit</span>';
-												}
+                                            if (dbUser) {
+                                                localStorage.setItem("dinerUserNickname", dbUser.nickname);
+                                                localStorage.setItem("dinoBodyColor", dbUser.dinoBodyColor);
+                                                localStorage.setItem("dinoBgColor", dbUser.dinoBgColor);
+                                                localStorage.setItem("dinoLineColor", dbUser.dinoLineColor || "black");
 
-												if (typeof generateDinoAvatar === "function") {
-													generateDinoAvatar(dbUser.DinoBodyColor, dbUser.DinoBgColor, dbUser.DinoLineColor || "black", function(avatarUrl) {
-														localStorage.setItem("dinerUserProfileImage", avatarUrl);
-														const profileImgEl = document.getElementById("profile-img");
-														if (profileImgEl) profileImgEl.src = avatarUrl;
-													});
-												}
-											}
+                                                const nameEl = document.getElementById("user-name");
+                                                const nicknameEl = document.getElementById("user-nickname");
+
+                                                if (nameEl) nameEl.textContent = dbUser.nickname;
+                                                if (nicknameEl) {
+                                                    nicknameEl.innerHTML = dbUser.nickname + ' <span class="material-symbols-outlined" style="font-size: 12px; vertical-align: middle;">edit</span>';
+                                                }
+
+                                                if (typeof generateDinoAvatar === "function") {
+                                                    generateDinoAvatar(
+                                                        dbUser.dinoBodyColor,
+                                                        dbUser.dinoBgColor,
+                                                        dbUser.dinoLineColor || "black",
+                                                        function(avatarUrl) {
+                                                            localStorage.setItem("dinerUserProfileImage", avatarUrl);
+                                                            const profileImgEl = document.getElementById("profile-img");
+                                                            if (profileImgEl) profileImgEl.src = avatarUrl;
+                                                        }
+                                                    );
+                                                }
+                                            }
 										} catch (e) {
 											console.error("Failed to sync current user profile with server data", e);
 										}
@@ -242,13 +271,28 @@ document.addEventListener("DOMContentLoaded", async function () {
 						handleDateRangeSelect(selectionInfo.startStr, selectionInfo.endStr);
 					}
 				},
-				dateClick: function (info) {
-					handleDateRangeSelect(info.dateStr, info.dateStr);
-				},
-				eventClick: function (info) {
-					const dateStr = info.event.startStr.split('T')[0];
-					handleDateOrEventClick(dateStr);
-				},
+                dateClick: function (info) {
+                    const target = info.jsEvent && info.jsEvent.target;
+                    if (window.moreLinkTouched || isMoreLinkTarget(target)) {
+                        return;
+                    }
+                    handleDateRangeSelect(info.dateStr, info.dateStr);
+                },
+                eventClick: function (info) {
+                    if (window.moreLinkTouched) return;
+
+                    const jsEvent = info.jsEvent;
+                    const target = jsEvent && jsEvent.target;
+
+                    if (target && isMoreLinkTarget(target)) {
+                        return;
+                    }
+
+                    const dateStr = info.event.startStr.split('T')[0];
+
+                    // handleDateOrEventClick(dateStr);
+                    handleDateRangeSelect(dateStr, dateStr);
+                },
 				eventContent: function (arg) {
 					const eventTitle = arg.event.title || arg.event.extendedProps.name;
 					const eventOrigName = arg.event.extendedProps.originalName;
@@ -257,36 +301,37 @@ document.addEventListener("DOMContentLoaded", async function () {
 						usersCache = JSON.parse(localStorage.getItem("dinerUsersCache") || "[]");
 					} catch(e) {}
 
-					const user = usersCache.find(u => 
-						(eventTitle && u.Nickname === eventTitle) || 
-						(eventOrigName && u.Nickname === eventOrigName) || 
-						(eventOrigName && u.Email === eventOrigName)
-					);
-					let bodyColor = "#A3D9C9";
-					let bgColor = "#FAF8F5";
-					let isWhiteLine = "black";
+                    const user = usersCache.find(u =>
+                        (eventTitle && u.nickname === eventTitle) ||
+                        (eventOrigName && u.nickname === eventOrigName) ||
+                        (eventOrigName && u.email === eventOrigName)
+                    );
 
-					if (user) {
-						bodyColor = user.DinoBodyColor;
-						bgColor = user.DinoBgColor;
-						isWhiteLine = user.DinoLineColor || "black";
-					} else {
-						const savedUserStr = localStorage.getItem("dinerUserInfo");
-						if (savedUserStr) {
-							const userInfo = JSON.parse(savedUserStr);
-							const myNickname = localStorage.getItem("dinerUserNickname");
-							if (eventTitle === userInfo.name || eventTitle === myNickname || eventOrigName === userInfo.name || eventOrigName === userInfo.email) {
-								bodyColor = localStorage.getItem("dinoBodyColor") || "#A3D9C9";
-								bgColor = localStorage.getItem("dinoBgColor") || "#FAF8F5";
-								isWhiteLine = localStorage.getItem("dinoLineColor") || "black";
-							}
-						}
-					}
+                    let bodyColor = "#A3D9C9";
+                    let bgColor = "#FAF8F5";
+                    let isWhiteLine = "black";
+
+                    if (user) {
+                        bodyColor = user.dinoBodyColor || "#A3D9C9";
+                        bgColor = user.dinoBgColor || "#FAF8F5";
+                        isWhiteLine = user.dinoLineColor || "black";
+                    } else {
+                        const savedUserStr = localStorage.getItem("dinerUserInfo");
+                        if (savedUserStr) {
+                            const userInfo = JSON.parse(savedUserStr);
+                            const myNickname = localStorage.getItem("dinerUserNickname");
+                            if (eventTitle === userInfo.name || eventTitle === myNickname || eventOrigName === userInfo.name || eventOrigName === userInfo.email) {
+                                bodyColor = localStorage.getItem("dinoBodyColor") || "#A3D9C9";
+                                bgColor = localStorage.getItem("dinoBgColor") || "#FAF8F5";
+                                isWhiteLine = localStorage.getItem("dinoLineColor") || "black";
+                            }
+                        }
+                    }
 
 					const cacheKey = `${bodyColor}_${bgColor}_${isWhiteLine}`;
 					let profileImage = window.dinoAvatarCache[cacheKey] || "resource/image/default-profile.png";
 					const memo = arg.event.extendedProps.reason || "";
-					const displayName = user ? user.Nickname : eventTitle;
+                    const displayName = user ? user.nickname : eventTitle;
 					let imgHtml = `<div class="d-flex align-items-center fc-event-wrapper"><img src="${profileImage}" class="shadow-sm fc-event-avatar" data-bs-toggle="tooltip" data-bs-placement="top" title="${memo || displayName}"><span class="fc-event-title-text" style="display: none;">${displayName}</span></div>`;
 
 					return { html: imgHtml };
@@ -321,21 +366,59 @@ document.addEventListener("DOMContentLoaded", async function () {
 						}, { passive: true });
 					}
 				},
-				dayCellContent: function (info) {
-					let number = document.createElement("a");
-					number.classList.add("fc-daygrid-day-number");
-					number.innerHTML = info.dayNumberText.replace("일", "");
-					if (info.view.type === "dayGridMonth") {
-						return {
-							html: number.outerHTML
-						};
-					}
-					return {
-						domNodes: []
-					};
-				},
+                dayCellContent: function (info) {
+                    if (info.view.type === "dayGridMonth") {
+                        return {
+                            html: info.dayNumberText.replace("일", "")
+                        };
+                    }
+                    return {
+                        domNodes: []
+                    };
+                },
 			});
 			window.appCalendar.render();
+
+			const calendarContainer = document.getElementById('calendar');
+			if (calendarContainer) {
+				let _moreTouchTarget = null;
+				let _moreTouchStartX = 0;
+				let _moreTouchStartY = 0;
+				let _moreTouchMoved = false;
+
+				calendarContainer.addEventListener('touchstart', function(e) {
+					const t = e.touches[0];
+					_moreTouchStartX = t.clientX;
+					_moreTouchStartY = t.clientY;
+					_moreTouchMoved = false;
+					_moreTouchTarget = e.target.closest('.fc-more-link, .fc-daygrid-more-link');
+					if (_moreTouchTarget) {
+						window.moreLinkTouched = true;
+						setTimeout(function() { window.moreLinkTouched = false; }, 800);
+					}
+				}, { passive: true });
+
+				calendarContainer.addEventListener('touchmove', function(e) {
+					const t = e.touches[0];
+					const dx = Math.abs(t.clientX - _moreTouchStartX);
+					const dy = Math.abs(t.clientY - _moreTouchStartY);
+					if (dx > 10 || dy > 10) {
+						_moreTouchMoved = true;
+					}
+				}, { passive: true });
+
+                calendarContainer.addEventListener('touchend', function(e) {
+                    if (!_moreTouchMoved && _moreTouchTarget) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (e.stopImmediatePropagation) {
+                            e.stopImmediatePropagation();
+                        }
+                        _moreTouchTarget.click();
+                    }
+                    _moreTouchTarget = null;
+                }, { passive: false });
+			}
 
 			const prevBtn = document.getElementById("prevMonthBtn");
 			const nextBtn = document.getElementById("nextMonthBtn");
@@ -711,13 +794,13 @@ window.onload = function () {
 									usersCache[userIdx].DinoBgColor = bgColor;
 									usersCache[userIdx].DinoLineColor = lineColor;
 								} else {
-									usersCache.push({
-										Email: userInfo.email,
-										Nickname: newNickname,
-										DinoBodyColor: bodyColor,
-										DinoBgColor: bgColor,
-										DinoLineColor: lineColor
-									});
+                                    usersCache.push({
+                                        email: userInfo.email,
+                                        nickname: newNickname,
+                                        dinoBodyColor: bodyColor,
+                                        dinoBgColor: bgColor,
+                                        dinoLineColor: lineColor
+                                    });
 								}
 								localStorage.setItem("dinerUsersCache", JSON.stringify(usersCache));
 								
@@ -900,6 +983,72 @@ function updateUserProfile(idToken) {
 
 let loadingToastInstance = null;
 
+function closeMorePopover() {
+    const closeBtn = document.querySelector(".fc-popover .fc-popover-close");
+    if (closeBtn) {
+        closeBtn.click();
+    }
+
+    document.querySelectorAll(".fc-popover").forEach(popover => popover.remove());
+
+    document
+        .querySelectorAll(".fc-more-link[aria-expanded='true'], .fc-daygrid-more-link[aria-expanded='true']")
+        .forEach(link => {
+            link.setAttribute("aria-expanded", "false");
+        });
+
+    window.moreLinkTouched = false;
+}
+
+function formatKoreanDateTitle(dateStr) {
+    if (!dateStr) return "";
+
+    const parts = dateStr.split("-");
+    if (parts.length !== 3) return dateStr;
+
+    const year = Number(parts[0]);
+    const month = Number(parts[1]);
+    const day = Number(parts[2]);
+
+    const date = new Date(year, month - 1, day);
+    const week = ["일", "월", "화", "수", "목", "금", "토"][date.getDay()];
+
+    return `${year}년 ${month}월 ${day}일 (${week})`;
+}
+
+function setAttendanceModalTitle(modalId, dateText, mode) {
+    const titleEl = document.querySelector(`#${modalId} .modal-title`);
+    if (!titleEl) return;
+
+    const icon = mode === "delete" ? "event_busy" : "event_available";
+    const label = mode === "delete" ? "참석 취소" : "참석 등록";
+
+    titleEl.innerHTML = `
+		<span class="material-symbols-outlined align-middle me-1">${icon}</span>
+		${dateText} ${label}
+	`;
+}
+
+function showAddEventModal(dateStr) {
+    closeMorePopover();
+
+    const dateText = formatKoreanDateTitle(dateStr);
+    setAttendanceModalTitle("eventModal", dateText, "add");
+
+    $("#selectedDate").val(dateStr);
+    $("#eventModal").modal("show");
+}
+
+function showDeleteEventModal(dateStr) {
+    closeMorePopover();
+
+    const dateText = formatKoreanDateTitle(dateStr);
+    setAttendanceModalTitle("deleteEventModal", dateText, "delete");
+
+    $("#deleteEventDate").val(dateStr);
+    $("#deleteEventModal").modal("show");
+}
+
 function handleDateRangeSelect(startStr, endStr) {
 	if (startStr === endStr) {
 		const nextDate = new Date(startStr);
@@ -945,13 +1094,11 @@ function handleDateRangeSelect(startStr, endStr) {
 			return (eventOwner === currentName || eventOwner === currentNickname);
 		});
 
-		if (myEventOnThisDate) {
-			$("#deleteEventDate").val(clickedDateStr);
-			$("#deleteEventModal").modal("show");
-		} else {
-			$("#selectedDate").val(clickedDateStr);
-			$("#eventModal").modal("show");
-		}
+        if (myEventOnThisDate) {
+            showDeleteEventModal(clickedDateStr);
+        } else {
+            showAddEventModal(clickedDateStr);
+        }
 	} else {
 		const datesToSave = dates.filter(dateStr => {
 			const alreadyChecked = allEvents.some(event => {
@@ -971,8 +1118,19 @@ function handleDateRangeSelect(startStr, endStr) {
 
 		window.dragSelectedDates = datesToSave;
 
-		$("#selectedDate").val(datesToSave.join(", "));
-		$("#eventModal").modal("show");
+        closeMorePopover();
+
+        const firstDateText = formatKoreanDateTitle(datesToSave[0]);
+        const titleEl = document.querySelector("#eventModal .modal-title");
+        if (titleEl) {
+            titleEl.innerHTML = `
+		<span class="material-symbols-outlined align-middle me-1">event_available</span>
+		${firstDateText} 외 ${datesToSave.length - 1}일 참석 등록
+	`;
+        }
+
+        $("#selectedDate").val(datesToSave.join(", "));
+        $("#eventModal").modal("show");
 	}
 
 	window.appCalendar.unselect();
@@ -1021,20 +1179,20 @@ function updateDailyEventsList(clickedDateStr) {
 					usersCache = JSON.parse(localStorage.getItem("dinerUsersCache") || "[]");
 				} catch(e) {}
 
-				const user = usersCache.find(u => 
-					(eventTitle && u.Nickname === eventTitle) || 
-					(eventOrigName && u.Nickname === eventOrigName) || 
-					(eventOrigName && u.Email === eventOrigName)
-				);
+                const user = usersCache.find(u =>
+                    (eventTitle && u.nickname === eventTitle) ||
+                    (eventOrigName && u.nickname === eventOrigName) ||
+                    (eventOrigName && u.email === eventOrigName)
+                );
 				let bodyColor = "#A3D9C9";
 				let bgColor = "#FAF8F5";
 				let isWhiteLine = "black";
 
-				if (user) {
-					bodyColor = user.DinoBodyColor;
-					bgColor = user.DinoBgColor;
-					isWhiteLine = user.DinoLineColor || "black";
-				} else {
+                if (user) {
+                    bodyColor = user.dinoBodyColor || "#A3D9C9";
+                    bgColor = user.dinoBgColor || "#FAF8F5";
+                    isWhiteLine = user.dinoLineColor || "black";
+                } else {
 					if (eventTitle === currentName || eventTitle === currentNickname || eventOrigName === currentName) {
 						bodyColor = localStorage.getItem("dinoBodyColor") || "#A3D9C9";
 						bgColor = localStorage.getItem("dinoBgColor") || "#FAF8F5";
@@ -1097,13 +1255,11 @@ function updateDailyEventsList(clickedDateStr) {
 }
 
 window.triggerAddEvent = function(dateStr) {
-	$("#selectedDate").val(dateStr);
-	$("#eventModal").modal("show");
+    showAddEventModal(dateStr);
 };
 
 window.triggerDeleteEvent = function(dateStr) {
-	$("#deleteEventDate").val(dateStr);
-	$("#deleteEventModal").modal("show");
+    showDeleteEventModal(dateStr);
 };
 
 function showToast(message, type = 'dark', delay = 3000) {
@@ -1151,9 +1307,7 @@ function hideLoadingToast(successMessage) {
 	}
 }
 
-// 5인 이상 참석 확정 배지(훈장) 렌더링
 function renderConfirmedDateBadges(events) {
-	// 먼저 모든 기존 배지 엘리먼트 제거
 	document.querySelectorAll('.confirmed-badge').forEach(el => el.remove());
 
 	const counts = {};
@@ -1359,6 +1513,16 @@ function initSchedulePage() {
 				});
 		};
 	}
+
+    const editTimeInput = document.getElementById("edit-sched-time");
+    const editTimeLabelEl = document.getElementById("edit-sched-time-label");
+
+    if (editTimeInput && editTimeLabelEl && !editTimeInput.dataset.labelBound) {
+        editTimeInput.dataset.labelBound = "true";
+        editTimeInput.addEventListener("input", function () {
+            editTimeLabelEl.textContent = formatScheduleTimeLabel(editTimeInput.value || "21:00");
+        });
+    }
 }
 
 function fetchSchedulesAndEventsFromServer(start, end) {
@@ -1397,6 +1561,47 @@ function fetchSchedulesAndEventsFromServer(start, end) {
 		});
 }
 
+function formatScheduleTimeLabel(timeVal) {
+    const normalized = normalizeScheduleTime(timeVal);
+    const [hourStr, minuteStr] = normalized.split(":");
+
+    let hour = Number(hourStr);
+    const minute = Number(minuteStr);
+
+    const ampm = hour >= 12 ? "오후" : "오전";
+    let displayHour = hour % 12;
+    if (displayHour === 0) displayHour = 12;
+
+    if (minute === 0) {
+        return `${ampm} ${displayHour}시`;
+    }
+
+    return `${ampm} ${displayHour}시 ${minute}분`;
+}
+
+function normalizeScheduleTime(timeVal) {
+    if (!timeVal) return "21:00";
+
+    const str = String(timeVal).trim();
+
+    const match = str.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+    if (match) {
+        return `${String(Number(match[1])).padStart(2, "0")}:${match[2]}`;
+    }
+
+    const isoTimeMatch = str.match(/T(\d{2}):(\d{2})(?::\d{2}(?:\.\d{3})?)?Z$/);
+    if (isoTimeMatch) {
+        const utcHour = Number(isoTimeMatch[1]);
+        const minute = isoTimeMatch[2];
+
+        const kstHour = (utcHour + 9) % 24;
+
+        return `${String(kstHour).padStart(2, "0")}:${minute}`;
+    }
+
+    return "21:00";
+}
+
 function renderSchedulesList(schedules, cycleStart, cycleEnd) {
 	const listEl = document.getElementById("schedule-list");
 	if (!listEl) return;
@@ -1407,7 +1612,7 @@ function renderSchedulesList(schedules, cycleStart, cycleEnd) {
 			id: s.id || '',
 			title: isReversed ? s.date : (s.title || ''),
 			date: isReversed ? s.title : (s.date || ''),
-			time: s.time || '21:00',
+            time: normalizeScheduleTime(s.time),
 			createdBy: isReversed ? (s.attendees || '') : (s.createdBy || ''),
 			participants: isReversed ? (s.isAuto || '') : (s.participants || ''),
 			type: s.type || (s.id && s.id.indexOf("auto_") === 0 ? "auto" : "manual"),
@@ -1477,7 +1682,7 @@ function renderSchedulesList(schedules, cycleStart, cycleEnd) {
 							</div>
 							<div class="d-flex align-items-center gap-1 text-secondary small mt-1">
 								<span class="material-symbols-outlined text-muted" style="font-size: 16px;">schedule</span>
-								<span>시간: <span class="fw-bold text-dark">${s.time || "21:00"}</span></span>
+								<span>시간: <span class="fw-bold text-dark">${formatScheduleTimeLabel(s.time)}</span></span>
 							</div>
 							<div class="text-secondary small mt-2 d-flex align-items-start gap-1 flex-wrap">
 								<div class="d-flex align-items-center gap-1" style="white-space: nowrap; flex-shrink: 0;">
@@ -1559,7 +1764,7 @@ window.openEditScheduleModal = function (id, title) {
 					id: s.id || '',
 					title: isReversed ? s.date : (s.title || ''),
 					date: isReversed ? s.title : (s.date || ''),
-					time: s.time || '21:00',
+                    time: normalizeScheduleTime(s.time),
 					createdBy: isReversed ? (s.attendees || '') : (s.createdBy || ''),
 					participants: isReversed ? (s.isAuto || '') : (s.participants || ''),
 					type: s.type || (s.id && s.id.indexOf("auto_") === 0 ? "auto" : "manual"),
@@ -1567,6 +1772,11 @@ window.openEditScheduleModal = function (id, title) {
 				};
 			});
 			sched = normalized.find(s => s.id === id);
+            document.getElementById("edit-sched-time").value = sched.time || '21:00';
+            const editTimeLabelEl = document.getElementById("edit-sched-time-label");
+            if (editTimeLabelEl) {
+                editTimeLabelEl.textContent = formatScheduleTimeLabel(sched.time || '21:00');
+            }
 		} catch(e) {
 			console.error(e);
 		}
@@ -1740,60 +1950,66 @@ window.drawDinoPreview = function(bodyColor, bgColor, isWhiteLine) {
 };
 
 window.pregenerateAllUserAvatars = function(callback) {
-	let usersCache = [];
-	const cached = localStorage.getItem("dinerUsersCache");
-	if (cached) {
-		try {
-			usersCache = JSON.parse(cached);
-		} catch(e) {}
-	}
+    let usersCache = [];
+    const cached = localStorage.getItem("dinerUsersCache");
+    if (cached) {
+        try {
+            usersCache = JSON.parse(cached);
+        } catch(e) {}
+    }
 
-	const savedUserStr = localStorage.getItem("dinerUserInfo");
-	if (savedUserStr) {
-		const userInfo = JSON.parse(savedUserStr);
-		const myNickname = localStorage.getItem("dinerUserNickname");
-		const myBody = localStorage.getItem("dinoBodyColor") || "#A3D9C9";
-		const myBg = localStorage.getItem("dinoBgColor") || "#FAF8F5";
-		const myLine = localStorage.getItem("dinoLineColor") || "black";
-		if (!usersCache.some(u => u.Email === userInfo.email)) {
-			usersCache.push({
-				Email: userInfo.email,
-				Nickname: myNickname || userInfo.name,
-				DinoBodyColor: myBody,
-				DinoBgColor: myBg,
-				DinoLineColor: myLine
-			});
-		}
-	}
+    const savedUserStr = localStorage.getItem("dinerUserInfo");
+    if (savedUserStr) {
+        const userInfo = JSON.parse(savedUserStr);
+        const myNickname = localStorage.getItem("dinerUserNickname");
+        const myBody = localStorage.getItem("dinoBodyColor") || "#A3D9C9";
+        const myBg = localStorage.getItem("dinoBgColor") || "#FAF8F5";
+        const myLine = localStorage.getItem("dinoLineColor") || "black";
 
-	if (!usersCache.some(u => u.Nickname === "default")) {
-		usersCache.push({
-			Nickname: "default",
-			DinoBodyColor: "#A3D9C9",
-			DinoBgColor: "#FAF8F5",
-			DinoLineColor: "black"
-		});
-	}
+        if (!usersCache.some(u => u.email === userInfo.email)) {
+            usersCache.push({
+                email: userInfo.email,
+                nickname: myNickname || userInfo.name,
+                dinoBodyColor: myBody,
+                dinoBgColor: myBg,
+                dinoLineColor: myLine
+            });
+        }
+    }
 
-	let remaining = usersCache.length;
-	if (remaining === 0) {
-		if (callback) callback();
-		return;
-	}
+    if (!usersCache.some(u => u.nickname === "default")) {
+        usersCache.push({
+            nickname: "default",
+            dinoBodyColor: "#A3D9C9",
+            dinoBgColor: "#FAF8F5",
+            dinoLineColor: "black"
+        });
+    }
 
-	usersCache.forEach(user => {
-		if (typeof generateDinoAvatar === "function") {
-			generateDinoAvatar(user.DinoBodyColor, user.DinoBgColor, user.DinoLineColor || "black", function() {
-				remaining--;
-				if (remaining === 0 && callback) {
-					callback();
-				}
-			});
-		} else {
-			remaining--;
-			if (remaining === 0 && callback) {
-				callback();
-			}
-		}
-	});
+    let remaining = usersCache.length;
+    if (remaining === 0) {
+        if (callback) callback();
+        return;
+    }
+
+    usersCache.forEach(user => {
+        if (typeof generateDinoAvatar === "function") {
+            generateDinoAvatar(
+                user.dinoBodyColor || "#A3D9C9",
+                user.dinoBgColor || "#FAF8F5",
+                user.dinoLineColor || "black",
+                function() {
+                    remaining--;
+                    if (remaining === 0 && callback) {
+                        callback();
+                    }
+                }
+            );
+        } else {
+            remaining--;
+            if (remaining === 0 && callback) {
+                callback();
+            }
+        }
+    });
 };
